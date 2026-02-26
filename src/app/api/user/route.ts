@@ -1,0 +1,19 @@
+import { getAllUsers } from '@/lib/action/user';
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get('page');
+    const limit = searchParams.get('limit');
+
+    const pageNumber = parseInt(page as string, 10);
+    const limitNumber = parseInt(limit as string, 10);
+
+    const users = await getAllUsers(pageNumber, limitNumber);
+
+    if (users.error) {
+        return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
+    }
+
+    return NextResponse.json(users);
+}

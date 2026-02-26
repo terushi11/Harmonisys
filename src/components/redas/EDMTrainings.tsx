@@ -1,0 +1,86 @@
+import { useEffect, useState, useRef } from 'react';
+import { Training } from '@/types/Redas';
+
+const EDMTrainings = () => {
+    const [trainings, setTrainings] = useState<Training[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [, setScrolled] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        fetch('/api/redas?sheetName=EDM Trainings')
+            .then((res) => res.json())
+            .then((data) => {
+                setTrainings(data);
+                setLoading(false);
+            })
+            .catch(() => {
+                setError('Failed to fetch trainings');
+                setLoading(false);
+            });
+    }, []);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            if (scrollRef.current) {
+                setScrolled(scrollRef.current.scrollTop > 0);
+            }
+        };
+        const div = scrollRef.current;
+        if (div) {
+            div.addEventListener('scroll', handleScroll);
+        }
+        return () => {
+            if (div) {
+                div.removeEventListener('scroll', handleScroll);
+            }
+        };
+    }, []);
+
+    return (
+        <div
+            ref={scrollRef}
+            className="h-64 overflow-y-auto border border-blue-100 rounded-lg p-0 bg-gradient-to-br from-blue-50/70 to-sky-50/70 backdrop-blur-sm relative"
+
+        >
+            {loading ? (
+                <div className="text-center text-slate-500 py-8">
+                    Loading...
+                </div>
+            ) : error ? (
+                <div className="text-center text-red-500 py-8">{error}</div>
+            ) : (
+                <table className="min-w-full text-sm text-slate-700">
+                    <thead className="sticky top-0 z-10 bg-blue-50/90 backdrop-blur-sm border-b border-blue-100">
+                        <tr>
+                            <th className="py-2 px-4 text-left">Event</th>
+                            <th className="py-2 px-4 text-left">Location</th>
+                            <th className="py-2 px-4 text-left">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {trainings.map((training, index) => (
+                            <tr
+                                key={index}
+                                className="bg-white/70 hover:bg-blue-50/80 transition-all"
+                            >
+                                <td className="py-2 px-4 border-b border-blue-100">
+                                    {training.event}
+                                </td>
+                                <td className="py-2 px-4 border-b border-blue-100">
+                                    {training.location}
+                                </td>
+                                <td className="py-2 px-4 border-b border-blue-100">
+                                    {training.date}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
+        </div>
+    );
+};
+
+export default EDMTrainings;

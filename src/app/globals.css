@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --background: #ffffff;
+    --foreground: #171717;
+    --header-height: 72px;
+
+    --rdp-accent-color: #6ed0f7;
+    --rdp-background-color: #f1fbff;
+    --rdp-selected-color: #6ed0f7;
+}
+
+body {
+    color: var(--foreground);
+    background: var(--background);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    }
+    .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    }
+}
+
+/* react-day-picker theming */
+.rdp {
+    background-color: var(--rdp-background-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.rdp-day_selected {
+    @apply bg-primary text-white font-semibold;
+}
+
+.rdp-day_today {
+    @apply border-2 border-primary;
+}
+
+.rdp-caption_label {
+    @apply text-lg font-bold text-textColor;
+}
+
+.rdp-nav_button {
+    @apply text-primary hover:scale-110 transition-transform;
+}
+/* Custom styles for the enhanced map */
+.leaflet-control-custom {
+    background: none !important;
+    border: none !important;
+}
+
+.custom-popup .leaflet-popup-content-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    border: none;
+    padding: 0;
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.custom-popup .leaflet-popup-content {
+    margin: 0;
+    padding: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    min-width: 220px;
+}
+
+.custom-popup .leaflet-popup-tip {
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced marker styling */
+.leaflet-marker-icon {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* Smooth animations */
+.leaflet-zoom-anim .leaflet-zoom-animated {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Custom scrollbar for popup content */
+.custom-popup .leaflet-popup-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-popup .leaflet-popup-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 2px;
+}
+
+.custom-popup .leaflet-popup-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 2px;
+}
+
+.custom-popup .leaflet-popup-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Custom marker styles */
+.custom-marker {
+    background: none !important;
+    border: none !important;
+}
+
+.custom-marker div {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-marker:hover div {
+    transform: rotate(-45deg) scale(1.1);
+    filter: brightness(1.1);
+}
+
+/* Marker animation on map load */
+@keyframes markerDrop {
+    0% {
+        transform: translateY(-100px) rotate(-45deg);
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(0) rotate(-45deg);
+        opacity: 1;
+    }
+}
+
+.custom-marker {
+    animation: markerDrop 0.6s ease-out;
+}
+
+/* Marker clustering effect */
+.leaflet-marker-icon.custom-marker {
+    z-index: 1000;
+}
+
+.leaflet-marker-icon.custom-marker:hover {
+    z-index: 1001;
+}
+
+/* ===== Landing page animations ===== */
+@keyframes blob {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -18px) scale(1.05); }
+    66% { transform: translate(-18px, 22px) scale(0.97); }
+    100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.animate-blob {
+    animation: blob 10s ease-in-out infinite;
+}
+
+.animation-delay-200 { animation-delay: 200ms; }
+.animation-delay-400 { animation-delay: 400ms; }
+.animation-delay-600 { animation-delay: 600ms; }
+.animation-delay-2000 { animation-delay: 2000ms; }
+.animation-delay-4000 { animation-delay: 4000ms; }
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeUp {
+    animation: fadeUp 700ms ease-out both;
+}
+
+/* shimmer overlay for CTA */
+.hero-shimmer {
+    position: absolute;
+    inset: -40% -60%;
+    background: linear-gradient(
+        120deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.45) 30%,
+        transparent 60%
+    );
+    transform: translateX(-40%);
+    animation: shimmer 2.8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-60%) rotate(8deg); opacity: 0; }
+    30% { opacity: 1; }
+    100% { transform: translateX(60%) rotate(8deg); opacity: 0; }
+}
