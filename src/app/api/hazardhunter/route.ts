@@ -1,4 +1,3 @@
-// app/api/assess/route.ts
 import { fetchHazardAssessment } from '@/lib/action/hazardhunter';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -8,23 +7,49 @@ export async function POST(request: NextRequest) {
         const { latitude, longitude } = body;
 
         if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-            return new Response(
-                JSON.stringify({
-                    error: 'Latitude and longitude must be numbers.',
-                }),
+            return NextResponse.json(
+                {
+                    message: 'Invalid coordinates',
+                    data: {
+                        success: false,
+                        message: 'Latitude and longitude must be numbers.',
+                        data: null,
+                    },
+                },
                 { status: 400 }
             );
         }
 
-        const data = await fetchHazardAssessment(latitude, longitude);
+        const hazardResult = await fetchHazardAssessment(latitude, longitude);
 
         return NextResponse.json(
-            { message: 'Ok', data: data },
+            {
+                message: 'Ok',
+                data: {
+                    success: true,
+                    message: 'Hazard assessment fetched successfully.',
+                    data: hazardResult,
+                },
+            },
             { status: 200 }
         );
-    } catch {
+    } catch (error) {
+        console.error('HazardHunter API error:', error);
+
+        const errorMessage =
+            error instanceof Error
+                ? error.message
+                : 'Internal server error';
+
         return NextResponse.json(
-            { message: 'Internal server error', data: null },
+            {
+                message: errorMessage,
+                data: {
+                    success: false,
+                    message: errorMessage,
+                    data: null,
+                },
+            },
             { status: 500 }
         );
     }

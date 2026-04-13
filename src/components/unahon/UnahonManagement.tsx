@@ -2,6 +2,7 @@
 
 import type { UnahonProps, FormRow, UnahonApiResponse } from '@/types/Unahon';
 import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Table,
   TableHeader,
@@ -23,6 +24,11 @@ import {
   DropdownMenu,
   DropdownItem,
   Skeleton,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from '@heroui/react';
 import { AssessmentType } from '@prisma/client';
 import {
@@ -34,6 +40,7 @@ import {
   FileText,
   RefreshCcw,
   Search,
+  Trash2,
 } from 'lucide-react';
 import useSWR from 'swr';
 import { unahonDashboardCols } from '@/constants';
@@ -117,10 +124,12 @@ const maroonUI = {
 
   // actions
   actionBtn:
-    'rounded-xl border border-slate-200 bg-white/85 shadow-sm hover:shadow-md transition-all duration-200',
+    'h-8 rounded-xl border border-slate-200 bg-white/85 shadow-sm hover:shadow-md transition-all duration-200 px-2.5 text-xs font-semibold gap-1 min-w-0',
   actionView: 'text-[#7A0C1E] hover:text-[#2A060D] hover:bg-[#B91C1C]/10 hover:border-[#B91C1C]/25',
   actionReassess:
     'text-[#B45309] hover:text-[#92400E] hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/25',
+  actionDelete:
+    'text-[#B91C1C] hover:text-[#7A0C1E] hover:bg-[#B91C1C]/10 hover:border-[#B91C1C]/25',
 
   // pagination
   pagerWrap:
@@ -139,7 +148,10 @@ const maroonUI = {
     'rounded-[26px] bg-white/85 backdrop-blur-md border border-white/55 shadow-[0_14px_50px_rgba(42,6,13,0.14)]',
 };
 
+
+
 const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: UnahonManagementProps) => {
+  const router = useRouter();
   const rowsPerPage = 10;
   const [page, setPage] = useState<number>(1);
   const [rows, setRows] = useState<FormRow[]>([]);
@@ -150,6 +162,14 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
   const [dateFilter, setDateFilter] = useState<string>('all');
 
   const [isHydrated, setIsHydrated] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [reassessConfirmOpen, setReassessConfirmOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [successTitle, setSuccessTitle] = useState('Notice');
+  const [selectedDeleteItem, setSelectedDeleteItem] = useState<FormRow | null>(null);
+  const [selectedReassessItem, setSelectedReassessItem] = useState<FormRow | null>(null);
 
   useEffect(() => setIsHydrated(true), []);
   useEffect(() => onStateChange?.(false), [onStateChange]);
@@ -168,10 +188,9 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
     return `/api/unahon?${params.toString()}`;
   }, [page, searchQuery, assessmentTypeFilter, dateFilter]);
 
-  const { data, isLoading } = useSWR<UnahonApiResponse>(apiUrl, fetcher, {
+  const { data, isLoading, mutate } = useSWR<UnahonApiResponse>(apiUrl, fetcher, {
     keepPreviousData: true,
   });
-
   // Statistics calculation
   const statistics = useMemo(() => {
     if (!data?.data) {
@@ -208,7 +227,8 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
 
     const getTableRows = () => {
       return Object.entries(data.data).flatMap(([clientId, entries]) =>
-        entries.map(({ confidentialForm, responder, checklist }, index) => ({
+        entries.map(({ id, confidentialForm, responder, checklist }, index) => ({
+          id,
           key: `${clientId}-${index}`,
           'client-id': clientId,
           'responder-name': responder,
@@ -228,6 +248,8 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
 
   const viewUnahonForm = useCallback(
     (item: FormRow) => {
+      console.log('View Details clicked', item);
+
       const props: UnahonProps = {
         session,
         isViewOnly: true,
@@ -241,118 +263,180 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
     [onUnahonStateChange, session]
   );
 
-  const reassessUnahonForm = useCallback(
-    (item: FormRow) => {
-      const props: UnahonProps = {
-        session,
-        isReassessment: true,
-        isViewOnly: false,
-        unahonChecklist: item.checklist,
-        clientConfidentialForm: {
-          ...item.confidentialForm,
-          userId: session.user.id,
-          assessmentType: AssessmentType.RE_ASSESSMENT,
+  const openReassessConfirm = useCallback((item: FormRow) => {
+  setSelectedReassessItem(item);
+  setReassessConfirmOpen(true);
+}, []);
+
+  const reassessUnahonForm = useCallback(async () => {
+    if (!selectedReassessItem) return;
+
+    try {
+      const res = await fetch('/api/unahon/reassess', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        responder: session.user.name!,
-      };
-      onUnahonStateChange?.(false, true, props);
-    },
-    [onUnahonStateChange, session]
-  );
+        body: JSON.stringify({
+          userId: selectedReassessItem.confidentialForm.userId,
+          client: selectedReassessItem.confidentialForm.client,
+          affiliation: selectedReassessItem.confidentialForm.affiliation,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to request reassessment');
+      }
+
+      setReassessConfirmOpen(false);
+      setSelectedReassessItem(null);
+      setSuccessTitle('Success');
+      setSuccessMessage('Reassessment request sent to the user.');
+      setSuccessModalOpen(true);
+
+      await mutate();
+    } catch (error) {
+      console.error(error);
+      setReassessConfirmOpen(false);
+      setSelectedReassessItem(null);
+      setSuccessTitle('Error');
+      setSuccessMessage('Failed to send reassessment request.');
+      setSuccessModalOpen(true);
+    }
+  }, [selectedReassessItem, mutate]);
+
+    const openDeleteConfirm = useCallback((item: FormRow) => {
+  setSelectedDeleteItem(item);
+  setDeleteConfirmOpen(true);
+}, []);
+
+  const deleteUnahonForm = useCallback(async () => {
+    if (!selectedDeleteItem) return;
+
+    try {
+      const res = await fetch(`/api/unahon/${selectedDeleteItem.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete assessment');
+      }
+
+      setDeleteConfirmOpen(false);
+      setSelectedDeleteItem(null);
+      setSuccessTitle('Success');
+      setSuccessMessage('Assessment deleted successfully.');
+      setSuccessModalOpen(true);
+
+      await mutate();
+    } catch (error) {
+      console.error(error);
+      setDeleteConfirmOpen(false);
+      setSelectedDeleteItem(null);
+      setSuccessTitle('Error');
+      setSuccessMessage('Failed to delete assessment.');
+      setSuccessModalOpen(true);
+    }
+  }, [selectedDeleteItem, mutate]);
 
   const renderCell = useCallback(
     (item: FormRow, columnKey: string | number) => {
       switch (columnKey) {
         case 'client-id':
           return (
-            <TableCell>
-              <div className="flex flex-col">
-                <span className="font-mono text-sm font-semibold text-slate-900">
-                  {item['client-id']}
-                </span>
-                <span className="text-xs text-slate-500">ID: {item['client-id'].slice(-8)}</span>
-              </div>
-            </TableCell>
+            <div className="flex flex-col">
+              <span className="font-mono text-sm font-semibold text-slate-900">
+                {item['client-id']}
+              </span>
+              <span className="text-xs text-slate-500">
+                ID: {item['client-id'].slice(-8)}
+              </span>
+              <span className="text-[10px] text-red-500">DB ID: {item.id}</span>
+            </div>
           );
 
         case 'responder-name':
           return (
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-[#7A0C1E] to-[#B91C1C]">
-                  {item['responder-name'].charAt(0).toUpperCase()}
-                </div>
-                <span className="font-medium text-slate-800">{item['responder-name']}</span>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-[#7A0C1E] to-[#B91C1C]">
+                {item['responder-name'].charAt(0).toUpperCase()}
               </div>
-            </TableCell>
+              <span className="font-medium text-slate-800">{item['responder-name']}</span>
+            </div>
           );
 
         case 'date':
           return (
-            <TableCell>
-              <div className="flex flex-col">
-                <span className="font-medium text-slate-800">{item.date}</span>
-                <span className="text-xs text-slate-500">
-                  {new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}
-                </span>
-              </div>
-            </TableCell>
+            <div className="flex flex-col">
+              <span className="font-medium text-slate-800">{item.date}</span>
+              <span className="text-xs text-slate-500">
+                {new Date(item.confidentialForm.date).toLocaleDateString('en-US', {
+                  weekday: 'short',
+                })}
+              </span>
+            </div>
           );
 
         case 'affiliation':
           return (
-            <TableCell>
-              <Chip size="sm" variant="flat" className="bg-slate-100 text-slate-700 font-medium">
-                {item.affiliation}
-              </Chip>
-            </TableCell>
+            <Chip size="sm" variant="flat" className="bg-slate-100 text-slate-700 font-medium">
+              {item.affiliation}
+            </Chip>
           );
 
         case 'assessment-type':
           return (
-            <TableCell className="text-center">
+            <div className="text-center">
               <Chip color={assessmentColorMap[item['assessment-type']]} variant="flat">
-                {item['assessment-type'].replace('_', ' ')}
+                {item['assessment-type'].replaceAll('_', ' ')}
               </Chip>
-            </TableCell>
+            </div>
           );
 
         case 'actions':
           return (
-            <TableCell className="text-center">
-              <div className="flex justify-center items-center gap-2">
-                <Tooltip content="View Details">
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    className={`${maroonUI.actionBtn} ${maroonUI.actionView}`}
-                    onPress={() => viewUnahonForm(item)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </Tooltip>
+            <div className="flex justify-center items-center gap-2 whitespace-nowrap">
+              <Button
+                size="sm"
+                variant="light"
+                className={`${maroonUI.actionBtn} ${maroonUI.actionView}`}
+                onPress={() => viewUnahonForm(item)}
+                startContent={<Eye className="w-4 h-4 shrink-0" />}
+              >
+                View
+              </Button>
 
-                <Tooltip content="Reassess User">
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    className={`${maroonUI.actionBtn} ${maroonUI.actionReassess}`}
-                    onPress={() => reassessUnahonForm(item)}
-                  >
-                    <RefreshCcw className="w-4 h-4" />
-                  </Button>
-                </Tooltip>
-              </div>
-            </TableCell>
+              <Button
+                size="sm"
+                variant="light"
+                className={`${maroonUI.actionBtn} ${maroonUI.actionReassess}`}
+                onPress={() => openReassessConfirm(item)}
+                startContent={<RefreshCcw className="w-4 h-4 shrink-0" />}
+              >
+                Reassess
+              </Button>
+
+              <Button
+                size="sm"
+                variant="light"
+                className={`${maroonUI.actionBtn} ${maroonUI.actionDelete}`}
+                onPress={() => openDeleteConfirm(item)}
+                startContent={<Trash2 className="w-4 h-4 shrink-0" />}
+              >
+                Delete
+              </Button>
+            </div>
           );
 
         default:
-          return <TableCell className="text-md sm:text-lg">{getKeyValue(item, columnKey)}</TableCell>;
+          return <span className="text-md sm:text-lg">{getKeyValue(item, columnKey)}</span>;
       }
     },
-    [viewUnahonForm, reassessUnahonForm]
+    [viewUnahonForm, openReassessConfirm, openDeleteConfirm]
   );
 
   const loadingState = isLoading ? 'loading' : 'idle';
@@ -365,12 +449,36 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
             <Card className={`${maroonUI.headerCard} mb-8 overflow-hidden`}>
             {/* Top gradient header */}
             <div className={maroonUI.heroGradient}>
-                <div className={maroonUI.headerPad}>
-                <h1 className={maroonUI.heroTitle}>Unahon Management</h1>
-                <p className={`${maroonUI.heroSub} mt-2`}>
-                    Mental health assessment forms and analytics dashboard
-                </p>
+              <div className={maroonUI.headerPad}>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div>
+                    <h1 className={maroonUI.heroTitle}>Unahon Management</h1>
+                    <p className={`${maroonUI.heroSub} mt-2`}>
+                      Mental health assessment forms and analytics dashboard
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end">
+                    <Button
+                      variant="light"
+                      className="
+                        h-12 px-6
+                        bg-white/15 text-white
+                        border border-white/25
+                        backdrop-blur-sm
+                        shadow-sm hover:shadow-md
+                        hover:bg-white/20
+                        transition-all duration-300
+                        font-medium
+                        rounded-xl
+                      "
+                      onPress={() => router.push('/dashboard')}
+                    >
+                      Back to Dashboard
+                    </Button>
+                  </div>
                 </div>
+              </div>
             </div>
 
             {/* Bottom toolbar area (attached) */}
@@ -624,13 +732,25 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                     td: maroonUI.tableTd,
                   }}
                 >
-                  <TableHeader columns={unahonDashboardCols}>
+                  <TableHeader columns={unahonDashboardCols.filter((col) => col.key !== 'client-id')}>
                     {(column) => (
                       <TableColumn
                         key={column.key}
                         className={`text-sm sm:text-md ${
                           column.key === 'assessment-type' || column.key === 'actions'
                             ? 'text-center'
+                            : ''
+                        } ${
+                          column.key === 'responder-name'
+                            ? 'w-[28%]'
+                            : column.key === 'date'
+                            ? 'w-[14%]'
+                            : column.key === 'affiliation'
+                            ? 'w-[14%]'
+                            : column.key === 'assessment-type'
+                            ? 'w-[23%]'
+                            : column.key === 'actions'
+                            ? 'w-[21%]'
                             : ''
                         }`}
                       >
@@ -660,10 +780,20 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                     loadingState={loadingState}
                   >
                     {(item) => (
-                      <TableRow key={item.key} className={maroonUI.tableRow}>
-                        {(columnKey) => renderCell(item, columnKey)}
-                      </TableRow>
-                    )}
+                    <TableRow key={item.key} className={maroonUI.tableRow}>
+                      {(columnKey) => (
+                        <TableCell
+                          className={`text-sm ${
+                            columnKey === 'assessment-type' || columnKey === 'actions'
+                              ? 'text-center'
+                              : ''
+                          } ${columnKey === 'actions' ? 'px-2 py-3' : 'px-4 py-3'}`}
+                        >
+                          {renderCell(item, columnKey)}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  )}
                   </TableBody>
                 </Table>
               )}
@@ -672,6 +802,101 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
         </div>
 
         {/* ✅ PAGINATION */}
+        <Modal isOpen={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+          <ModalContent>
+            <ModalHeader className="font-bold">
+              Confirm Action
+            </ModalHeader>
+
+            <ModalBody>
+              <p className="text-slate-700 text-lg leading-relaxed">
+                Are you sure you want to{' '}
+                <span className="font-bold text-[#B91C1C]">DELETE</span>{' '}
+                this assessment? This cannot be undone.
+              </p>
+            </ModalBody>
+
+            <ModalFooter>
+              <Button
+                variant="light"
+                onPress={() => {
+                  setDeleteConfirmOpen(false);
+                  setSelectedDeleteItem(null);
+                }}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="bg-[#7A0C1E] text-white"
+                onPress={deleteUnahonForm}
+              >
+                Confirm
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+        
+
+        <Modal isOpen={reassessConfirmOpen} onClose={() => setReassessConfirmOpen(false)}>
+          <ModalContent>
+            <ModalHeader className="font-bold">
+              Confirm Action
+            </ModalHeader>
+
+            <ModalBody>
+              <p className="text-slate-700 text-lg leading-relaxed">
+                Are you sure you want to{' '}
+                <span className="font-bold text-[#B45309]">REASSESS</span>{' '}
+                this assessment?
+              </p>
+            </ModalBody>
+
+            <ModalFooter>
+              <Button
+                variant="light"
+                onPress={() => {
+                  setReassessConfirmOpen(false);
+                  setSelectedReassessItem(null);
+                }}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="bg-[#7A0C1E] text-white"
+                onPress={reassessUnahonForm}
+              >
+                Confirm
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        <Modal isOpen={successModalOpen} onClose={() => setSuccessModalOpen(false)}>
+          <ModalContent>
+            <ModalHeader className="font-bold">
+              {successTitle}
+            </ModalHeader>
+
+            <ModalBody>
+              <p className="text-slate-700 text-lg leading-relaxed">
+                {successMessage}
+              </p>
+            </ModalBody>
+
+            <ModalFooter>
+              <Button
+                className="bg-[#7A0C1E] text-white"
+                onPress={() => setSuccessModalOpen(false)}
+              >
+                OK
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+
         {isHydrated && totalPages > 1 && (
           <div className="flex w-full justify-center mt-6">
             <Pagination

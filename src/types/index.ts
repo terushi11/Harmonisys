@@ -29,8 +29,17 @@ export interface User {
     name: string;
     email: string;
     role: UserType;
-    competency: number | null;
+    mhpssLevel: string | null;
+    gender?: string | null;
+    region?: string | null;
     createdAt: Date;
+    pendingRoleRequest?: {
+        id: string;
+        toRole: UserType;
+        requestedMhpssLevel?: string | null;
+        status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+        createdAt?: string;
+    } | null;
 }
 
 export interface UserTableProps {

@@ -29,7 +29,7 @@ import ParticipantCharts from './ParticipantChart';
 
 // REDAS Theme Configuration (BLUE)
 const redasTheme = {
-  background: 'bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-100',
+  background: 'bg-gradient-to-br from-sky-100 via-blue-100 to-indigo-200',
   headerGradient: 'from-blue-900 via-sky-800 to-indigo-900',
   primaryGradient: 'from-blue-600 to-sky-600',
   primaryHoverGradient: 'from-blue-700 to-sky-700',
@@ -143,6 +143,18 @@ const REDASOverview = ({
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
 
+    // ✅ IRS-like glass + soft-blue card styles (REDAS theme)
+  const cardGlass =
+    'relative rounded-3xl overflow-hidden ' +
+    'bg-sky-50/65 border border-white/90 ' +
+    'shadow-[0_0_0_1.5px_rgba(255,255,255,0.80),0_18px_45px_rgba(0,0,0,0.14)] ' +
+    'transition-shadow duration-300 ' +
+    'hover:shadow-[0_0_0_2px_rgba(255,255,255,0.92),0_22px_60px_rgba(0,0,0,0.16)]';
+
+  const innerGlass =
+    'bg-white/90 border border-white/70 ' +
+    'shadow-[0_0_0_1px_rgba(255,255,255,0.55),0_12px_28px_rgba(0,0,0,0.10),0_0_40px_rgba(255,255,255,0.18)]';
+
   // Embla Carousel hooks with autoplay
   const [emblaRefModules, emblaApiModules] = useEmblaCarousel(
     { loop: true, slidesToScroll: 1 },
@@ -203,13 +215,13 @@ const REDASOverview = ({
 
   // Define all navigation buttons with their routes
   const navigationButtons = [
-    { url: '/redas/faq', label: 'FAQs' },
     ...urls
       .filter((url) => url !== '/redas')
       .map((url) => ({
         url,
         label: url.split('/').at(-1)!.toLocaleUpperCase(),
       })),
+    { url: '/redas/faq', label: 'FAQs' },
   ];
 
   return (
@@ -292,7 +304,7 @@ const REDASOverview = ({
             {/* Image Section - REDAS Modules Carousel */}
             <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
               <CardBody className="p-0">
-                <div className="relative w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden rounded-lg bg-blue-50/40 pt-8 pb-2">
+                <div className="relative w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden rounded-lg bg-blue-50/40 pt-8 pb-8">
                   <div className="overflow-hidden rounded-lg h-full" ref={emblaRefModules}>
                     <div className="flex h-full">
                       {REDAS_MODULES.map((file, i) => (
@@ -313,7 +325,7 @@ const REDASOverview = ({
                   </div>
 
                   {/* Slide Counter */}
-                  <div className="absolute top-8 right-8 bg-blue-900/50 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                  <div className="absolute top-6 right-6 bg-blue-900/45 text-white px-2 py-0.5 rounded-full text-[12px] backdrop-blur-sm">
                     {currentSlide + 1} / {REDAS_MODULES.length}
                   </div>
                 </div>
@@ -334,90 +346,105 @@ const REDASOverview = ({
             </Card>
 
             {/* Content Section */}
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* About Section */}
-              <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-blue-600 to-sky-600 rounded-lg shadow-lg">
-                      <Layers className="w-5 h-5 text-white" />
+              <Card className={`${cardGlass}`}>
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1.5 ring-white/60" />
+
+                <CardHeader className="pt-4 pb-1">
+                  <div className="w-full px-2 sm:px-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-[#2563EB] flex items-center justify-center shadow">
+                        <Layers className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-[#1E3A8A]">About REDAS</h2>
+                        <div className="mt-1.5 h-[2px] w-14 bg-[#2563EB]/60 rounded-full" />
+                      </div>
                     </div>
-                    <h2 className={`text-2xl font-bold bg-gradient-to-r ${redasTheme.headerGradient} bg-clip-text text-transparent`}>
-                      About
-                    </h2>
                   </div>
                 </CardHeader>
-                <CardBody className="pt-0">
-                  <div className="space-y-4">
-                    <p className="text-slate-700 leading-relaxed text-justify text-[15px] sm:text-[16px] p-3">
-                      {description}
-                    </p>
-                  </div>
+
+                <CardBody className="pt-2 space-y-3 px-5 sm:px-6 pb-5">
+                  <p className="text-[14.5px] sm:text-[15.5px] text-slate-800 leading-[1.65] [text-align:justify]">
+                    {description}
+                  </p>
                 </CardBody>
               </Card>
 
               {/* Features Section */}
-              <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-r from-blue-600 to-sky-600 rounded-lg shadow-lg">
-                      <Activity className="w-5 h-5 text-white" />
+              <Card
+                className="relative rounded-3xl overflow-hidden bg-[#1E3A8A]/85 border border-white/25
+                shadow-[0_0_0_1.5px_rgba(255,255,255,0.70),0_18px_45px_rgba(0,0,0,0.22)]
+                hover:shadow-[0_0_0_2px_rgba(255,255,255,0.85),0_22px_55px_rgba(0,0,0,0.24)]
+                transition-shadow duration-300"
+              >
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-white/35" />
+
+                <CardHeader className="pt-4 pb-1">
+                  <div className="w-full px-2 sm:px-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow">
+                        <Activity className="w-4 h-4 text-[#1E3A8A]" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-black text-white">Available Features</h2>
+                        <div className="mt-1.5 h-[1px] w-14 bg-white/90 rounded-full" />
+                      </div>
                     </div>
-                    <h3 className={`text-2xl font-bold bg-gradient-to-r ${redasTheme.headerGradient} bg-clip-text text-transparent`}>
-                      Available Features
-                    </h3>
                   </div>
                 </CardHeader>
 
-                <CardBody className="pt-0 overflow-visible">
-                  <div className="grid gap-4 relative p-4" style={{ zIndex: 1000 }}>
-                    {navigationButtons.map((button) => {
-                      const isProtected = isRouteProtected(button.url);
-                      const isAccessible = !isProtected || isAuthenticated;
+                <CardBody className="pt-2 space-y-3 px-5 sm:px-6 pb-5">
+                  {navigationButtons.map((button) => {
+                    const isProtected = isRouteProtected(button.url);
+                    const isAccessible = !isProtected || isAuthenticated;
 
+                    const content = (
+                      <div
+                        className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 ${innerGlass}
+                          transition-transform duration-200 hover:-translate-y-0.5`}
+                      >
+                        <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shadow-lg ${
+                            button.url.includes('faq')
+                              ? 'bg-gradient-to-r from-sky-600 to-blue-600'
+                              : button.url.includes('gis')
+                              ? 'bg-gradient-to-r from-indigo-600 to-cyan-600'
+                              : 'bg-gradient-to-r from-blue-600 to-sky-600'
+                          }`}
+                        >
+                          <ExternalLink className="h-5 w-5 text-white" />
+                        </div>
+
+                        <div className="flex-1">
+                          <p className="font-bold text-[#0B2A6F] text-[15.5px] leading-tight">{button.label}</p>
+                          <p className="text-[12.5px] text-slate-600 leading-tight">
+                            {button.url.includes('faq')
+                              ? 'FAQs & guides'
+                              : button.url.includes('gis')
+                              ? 'Maps & spatial tools'
+                              : 'Open module'}
+                          </p>
+                        </div>
+
+                        <ArrowRight className="w-5 h-5 text-slate-400" />
+                      </div>
+                    );
+
+                    if (!isAccessible) {
                       return (
-                        <div key={button.url} className="relative group z-10 hover:z-20">
-                          {isAccessible ? (
-                            <Button
-                              as={Link}
-                              href={button.url}
-                              className={`w-full justify-between h-14 font-semibold transition-all duration-500 transform hover:-translate-y-0.5 hover:scale-[1.01] shadow-lg hover:shadow-2xl relative z-10 hover:z-30 ${
-                                !['/redas/faq', '/redas/gis'].includes(button.url)
-                                  ? `
-                                      bg-gradient-to-r from-blue-600 to-sky-600
-                                      hover:from-blue-900 hover:to-sky-700
-                                      text-white
-                                    `
-                                  : `bg-white/80 backdrop-blur-sm border ${redasTheme.accentColor} hover:bg-white/90 text-slate-700`
-                              }`}
-                              startContent={<ExternalLink className="w-5 h-5" />}
-                              endContent={<ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />}
-                            >
-                              <span className="text-lg">{button.label}</span>
-                            </Button>
-                          ) : (
-                            <Button
-                              className="
-                                w-full justify-between h-14 font-semibold
-                                bg-white/80 backdrop-blur-sm
-                                border border-blue-200
-                                text-slate-400
-                                cursor-not-allowed
-                                opacity-60
-                                shadow-md
-                                relative z-10
-                              "
-                              disabled
-                              startContent={<ExternalLink className="w-5 h-5" />}
-                              endContent={<ArrowRight className="w-5 h-5" />}
-                            >
-                              <span className="text-lg">{button.label}</span>
-                            </Button>
-                          )}
+                        <div key={button.url} className="w-full cursor-not-allowed opacity-60">
+                          {content}
                         </div>
                       );
-                    })}
-                  </div>
+                    }
+
+                    return (
+                      <Link key={button.url} href={button.url} className="block">
+                        {content}
+                      </Link>
+                    );
+                  })}
                 </CardBody>
               </Card>
             </div>
@@ -443,13 +470,13 @@ const REDASOverview = ({
             {REDAS_AWARDS.map((award, i) => (
               <Card key={i} className="bg-white shadow-md hover:shadow-lg transition-shadow duration-300">
                 <CardBody className="p-0">
-                  <div className="relative w-full aspect-[4/3]">
+                  <div className="relative w-full h-[180px] flex items-center justify-center bg-white">
                     <Image
                       src={`/redas/${award.img}`}
                       alt={award.title}
                       fill
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
-                      className="object-contain rounded-t-lg bg-white"
+                      className="object-contain p-3"
                     />
                   </div>
 

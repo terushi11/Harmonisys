@@ -1,17 +1,25 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
 import { QUESTIONS } from '@/constants';
 import type { SubmissionData } from '@/types';
 
 export async function POST(request: NextRequest) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 401 }
+        );
+    }
     try {
         const body: SubmissionData = await request.json();
         const { formData, responses } = body;
 
         // Validate required fields
-        if (!formData.name || !formData.date || !formData.team) {
+        if (!formData.name || !formData.date) {
             return NextResponse.json(
-                { error: 'Missing required fields: name, date, or team' },
+                { error: 'Missing required fields: name or date' },
                 { status: 400 }
             );
         }
@@ -32,12 +40,33 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const approvedMembership = await prisma.miSaludMembership.findFirst({
+            where: {
+                userId: session.user.id,
+                status: 'APPROVED',
+            },
+            include: {
+                team: true,
+            },
+            orderBy: {
+                updatedAt: 'desc',
+            },
+        });
+
+        if (!approvedMembership) {
+            return NextResponse.json(
+                { error: 'You do not have an approved Mi Salud membership yet' },
+                { status: 403 }
+            );
+        }
+
         // Create submission with responses
         const submission = await prisma.submission.create({
             data: {
+                userId: session.user.id,
                 name: formData.name,
                 date: new Date(formData.date),
-                team: formData.team,
+                team: approvedMembership.team.name,
                 responses: {
                     create: Object.entries(responses).map(
                         ([questionId, selectedOption]) => {

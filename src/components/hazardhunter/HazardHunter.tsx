@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import dynamic from 'next/dynamic';
 import {
     Card,
     CardBody,
@@ -9,6 +12,12 @@ import {
     Button,
     Chip,
     Skeleton,
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    useDisclosure,
 } from '@heroui/react';
 import {
     Search,
@@ -16,10 +25,13 @@ import {
     AlertTriangle,
     Globe,
     Clock,
-    ArrowLeft,
-    Info,
+    MapPinned,
+    PanelRightClose,
+    PanelRightOpen,
+    LocateFixed,
+    Download,
 } from 'lucide-react';
-import Link from 'next/link';
+import Questionnaire from '../irs/Questionnaire';
 
 interface NominatimResult {
     place_id: number;
@@ -105,7 +117,336 @@ interface ApiResponse {
     };
 }
 
+type HazardResultCardProps = {
+    title: string;
+    subtitle: string;
+    assessment: string;
+    icon: React.ReactNode;
+    summary?: string;
+    detailLabel?: string;
+    detailValue?: string;
+    explanation?: string;
+    onClick?: () => void;
+};
+
+type SelectedHazardCard = {
+    title: string;
+    subtitle: string;
+    assessment: string;
+    icon: React.ReactNode;
+    detailLabel?: string;
+    detailValue?: string;
+    summary?: string;
+    explanation?: string;
+};
+
+type OverviewStatCardProps = {
+    title: string;
+    subtitle: string;
+    value: React.ReactNode;
+    icon: React.ReactNode;
+    accentBarClass: string;
+};
+
+const HazardHunterMap = dynamic(() => import('./HazardHunterMap'), {
+    ssr: false,
+    loading: () => (
+        <div className="w-full h-full rounded-none overflow-hidden" />
+    ),
+});
+
 const HazardHunter = () => {
+        const {
+            isOpen: isReportIncidentOpen,
+            onOpen: onOpenReportIncident,
+            onClose: onCloseReportIncident,
+            onOpenChange: onReportIncidentOpenChange,
+        } = useDisclosure();
+        const loadImageAsDataUrl = (src: string) =>
+        new Promise<{ dataUrl: string; width: number; height: number }>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Could not create canvas context'));
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0);
+                resolve({
+                    dataUrl: canvas.toDataURL('image/png'),
+                    width: img.width,
+                    height: img.height,
+                });
+            };
+
+            img.onerror = reject;
+            img.src = src;
+        });
+
+        const cleanText = (value?: string) =>
+            (value || 'N/A')
+                .replace(/<br\s*\/?>/gi, ' ')
+                .replace(/<\/?[^>]+(>|$)/g, ' ')
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+        const shortenText = (value?: string, maxLength = 95) => {
+
+            const splitTextToJustifiedLines = (
+            doc: jsPDF,
+            text: string,
+            maxWidth: number,
+            fontSize: number
+        ) => {
+            const words = cleanText(text).split(' ').filter(Boolean);
+            const lines: string[][] = [];
+            let currentLine: string[] = [];
+
+            doc.setFontSize(fontSize);
+
+            for (const word of words) {
+                const testLine = [...currentLine, word].join(' ');
+                const testWidth = doc.getTextWidth(testLine);
+
+                if (testWidth <= maxWidth || currentLine.length === 0) {
+                    currentLine.push(word);
+                } else {
+                    lines.push(currentLine);
+                    currentLine = [word];
+                }
+            }
+
+            if (currentLine.length) {
+                lines.push(currentLine);
+            }
+
+            return lines;
+        };
+
+        const drawJustifiedText = ({
+            doc,
+            text,
+            x,
+            y,
+            maxWidth,
+            fontSize,
+            lineHeight,
+        }: {
+            doc: jsPDF;
+            text: string;
+            x: number;
+            y: number;
+            maxWidth: number;
+            fontSize: number;
+            lineHeight: number;
+        }) => {
+            const lines = splitTextToJustifiedLines(doc, text, maxWidth, fontSize);
+
+            doc.setFontSize(fontSize);
+
+            lines.forEach((words, index) => {
+                const isLastLine = index === lines.length - 1;
+                const lineText = words.join(' ');
+
+                if (isLastLine || words.length === 1) {
+                    doc.text(lineText, x, y + index * lineHeight);
+                    return;
+                }
+
+                const wordsWidth = words.reduce((sum, word) => sum + doc.getTextWidth(word), 0);
+                const totalSpacing = maxWidth - wordsWidth;
+                const gaps = words.length - 1;
+                const extraSpace = totalSpacing / gaps;
+
+                let currentX = x;
+
+                words.forEach((word, wordIndex) => {
+                    doc.text(word, currentX, y + index * lineHeight);
+                    currentX += doc.getTextWidth(word);
+
+                    if (wordIndex < gaps) {
+                        currentX += extraSpace;
+                    }
+                });
+            });
+
+            return y + lines.length * lineHeight;
+        };
+            const text = cleanText(value);
+            if (text.length <= maxLength) return text;
+            return `${text.slice(0, maxLength).trim()}...`;
+        };
+
+
+        const handleDownloadAssessmentPDF = async () => {
+            if (!hazardData) return;
+
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+            });
+
+            const selectedLocation =
+                hazardData?.location?.name ||
+                placeInput ||
+                detectedLocationLabel ||
+                'Selected location';
+
+            const coordinatesText = hasValidMapCoordinates
+                ? `${mapCoordinates.lat.toFixed(6)}, ${mapCoordinates.lng.toFixed(6)}`
+                : 'N/A';
+
+            try {
+                const logo = await loadImageAsDataUrl('/hazardHunter_logo.png');
+
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const maxLogoHeight = 32;
+                const logoAspectRatio = logo.width / logo.height;
+
+                const logoHeight = maxLogoHeight;
+                const logoWidth = logoHeight * logoAspectRatio;
+
+                const logoX = pageWidth - logoWidth - 16; // move slightly left
+                const logoY = 8;
+
+                doc.addImage(
+                    logo.dataUrl,
+                    'PNG',
+                    logoX,
+                    logoY,
+                    logoWidth,
+                    logoHeight,
+                    undefined,
+                    'FAST'
+                );
+            } catch (error) {
+                console.error('Failed to load PDF logo:', error);
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(35, 43, 60);
+            doc.text('HazardHunter Assessment Results', 14, 16);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.8);
+            doc.setTextColor(80, 90, 110);
+            doc.text(`Selected Location: ${selectedLocation}`, 14, 25);
+            doc.text(`Coordinates: ${coordinatesText}`, 14, 30);
+            doc.text(`Total Hazards: ${getTotalHazards()}`, 14, 35);
+            doc.text(`High Risk Count: ${getHighRiskCount()}`, 14, 40);
+
+            autoTable(doc, {
+                startY: 48,
+                head: [['Hazard', 'Assessment', 'Details']],
+                body: [
+                    [
+                        'Active Fault',
+                        hazardData.activeFault.assessment,
+                        cleanText(
+                            `${hazardData.activeFault.distance} ${hazardData.activeFault.units} ${hazardData.activeFault.direction} | Fault: ${hazardData.activeFault.fault_name}`
+                        ),
+                    ],
+                    [
+                        'Ground Rupture',
+                        hazardData.groundRupture.assessment,
+                        cleanText(
+                            `${hazardData.groundRupture.distance} ${hazardData.groundRupture.units} ${hazardData.groundRupture.direction}`
+                        ),
+                    ],
+                    [
+                        'Ground Shaking',
+                        hazardData.groundShaking.assessment,
+                        cleanText(hazardData.groundShaking.explanation?.join(' ')),
+                    ],
+                    [
+                        'Earthquake Landslide',
+                        hazardData.eil.assessment,
+                        cleanText(hazardData.eil.explanation?.join(' ')),
+                    ],
+                    [
+                        'Liquefaction',
+                        hazardData.liquefaction.assessment,
+                        cleanText(hazardData.liquefaction.explanation?.join(' ')),
+                    ],
+                    [
+                        'Tsunami',
+                        hazardData.tsunami.assessment,
+                        cleanText(
+                            `${hazardData.tsunami.result} | ${hazardData.tsunami.explanation?.join(' ') || ''}`
+                        ),
+                    ],
+                    [
+                        'Flood Risk',
+                        hazardData.flood.assessment,
+                        cleanText(
+                            `${hazardData.flood.result} | ${hazardData.flood.explanation?.join(' ') || ''}`
+                        ),
+                    ],
+                    [
+                        'Rain Landslide',
+                        hazardData.ril.assessment,
+                        cleanText(
+                            `${hazardData.ril.result} | ${hazardData.ril.explanation?.join(' ') || ''}`
+                        ),
+                    ],
+                    [
+                        'Storm Surge',
+                        hazardData.stormSurge.assessment,
+                        cleanText(
+                            `${hazardData.stormSurge.result} | ${hazardData.stormSurge.explanation?.join(' ') || ''}`
+                        ),
+                    ],
+                    [
+                        'Volcanic Ashfall',
+                        hazardData.ashfall.assessment,
+                        cleanText(hazardData.ashfall.explanation?.join(' ')),
+                    ],
+                ],
+                theme: 'grid',
+                styles: {
+                    fontSize: 8.2,
+                    cellPadding: 1.8,
+                    lineColor: [220, 220, 220],
+                    lineWidth: 0.15,
+                    overflow: 'linebreak',
+                    valign: 'top',
+                    textColor: [45, 55, 72],
+                    cellWidth: 'wrap',
+                },
+                headStyles: {
+                    fillColor: [90, 58, 26],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 8.4,
+                    cellPadding: 1.8,
+                },
+                columnStyles: {
+                    0: { cellWidth: 30 },
+                    1: { cellWidth: 34 },
+                    2: { cellWidth: 114 },
+                },
+                tableWidth: 178,
+                margin: { top: 48, right: 16, bottom: 8, left: 16 },
+                pageBreak: 'avoid',
+                rowPageBreak: 'avoid',
+            });
+
+            const safeFileName = selectedLocation
+                .replace(/[^\w\s-]/g, '')
+                .replace(/\s+/g, '_');
+
+            doc.save(`HazardHunter_Assessment_${safeFileName}.pdf`);
+        };
     const [placeInput, setPlaceInput] = useState('');
     const [nominatimResults, setNominatimResults] = useState<NominatimResult[]>(
         []
@@ -113,18 +454,117 @@ const HazardHunter = () => {
     const [selectedCoordinates, setSelectedCoordinates] = useState<{
         lat: number;
         lng: number;
-    } | null>(null);
+    } | null>({
+        lat: 14.5995,
+        lng: 120.9842,
+    });
     const [hazardData, setHazardData] = useState<HazardData | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchingPlace, setSearchingPlace] = useState(false);
+    const skipNextAutocomplete = useRef(false);
+    
+    const activeAssessController = useRef<AbortController | null>(null);
+    const latestAssessRequestId = useRef(0);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const searchPlace = async () => {
-        if (!placeInput.trim()) return;
+    const [selectedHazardCard, setSelectedHazardCard] =
+    useState<SelectedHazardCard | null>(null);
+
+    const [isResultsPanelOpen, setIsResultsPanelOpen] = useState(true);
+    const [detectedLocationLabel, setDetectedLocationLabel] = useState<string | null>(null);
+
+    useEffect(() => {
+        const trimmed = placeInput.trim();
+
+        if (skipNextAutocomplete.current) {
+            skipNextAutocomplete.current = false;
+            return;
+        }
+
+        if (trimmed.length < 2) {
+            setNominatimResults([]);
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            searchPlace(trimmed);
+        }, 400);
+
+        return () => clearTimeout(timeout);
+    }, [placeInput]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || !navigator.geolocation) {
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                setSelectedCoordinates({ lat, lng });
+                setHazardData(null);
+
+                const resolvedLocation = await reverseGeocode(lat, lng);
+
+                setDetectedLocationLabel(resolvedLocation);
+                skipNextAutocomplete.current = true;
+                setPlaceInput(resolvedLocation);
+            },
+            () => {
+                setDetectedLocationLabel('Metro Manila, Philippines');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000,
+            }
+        );
+    }, []);
+
+    const reverseGeocode = async (lat: number, lng: number) => {
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+            );
+
+            const result = await response.json();
+
+            return (
+                result?.display_name ||
+                result?.address?.city ||
+                result?.address?.municipality ||
+                result?.address?.town ||
+                result?.address?.village ||
+                `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+            );
+        } catch (error) {
+            console.error('Error reverse geocoding location:', error);
+            return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            activeAssessController.current?.abort();
+        };
+    }, []);
+
+    const searchPlace = async (query?: string) => {
+        const searchValue = (query ?? placeInput).trim();
+
+        if (!searchValue) {
+            setNominatimResults([]);
+            return;
+        }
 
         setSearchingPlace(true);
         try {
             const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(placeInput)}&limit=10&countrycodes=ph`
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                    searchValue
+                )}&limit=10&countrycodes=ph`
             );
             const results: NominatimResult[] = await response.json();
             setNominatimResults(results);
@@ -138,18 +578,77 @@ const HazardHunter = () => {
     const selectPlace = (result: NominatimResult) => {
         const lat = Number.parseFloat(result.lat);
         const lng = Number.parseFloat(result.lon);
+
+        skipNextAutocomplete.current = true;
         setSelectedCoordinates({ lat, lng });
-        //setNominatimResults([]);
+        setHazardData(null);
+        setErrorMessage(null);
+        setDetectedLocationLabel(null);
         setPlaceInput(result.display_name);
+        setNominatimResults([]);
     };
 
-    const assessHazard = async () => {
-        if (!selectedCoordinates) {
-            alert('Please search and select a place first');
+    const handleMapLocationSelect = async ({
+        lat,
+        lng,
+    }: {
+        lat: number;
+        lng: number;
+    }) => {
+        setSelectedCoordinates({ lat, lng });
+        setHazardData(null);
+        setErrorMessage(null);
+        setNominatimResults([]);
+        skipNextAutocomplete.current = true;
+
+        const resolvedLocation = await reverseGeocode(lat, lng);
+
+        setDetectedLocationLabel(resolvedLocation);
+        setPlaceInput(resolvedLocation);
+    };
+
+    const handleMapLocationDoubleClick = async ({
+        lat,
+        lng,
+    }: {
+        lat: number;
+        lng: number;
+    }) => {
+        const coords = { lat, lng };
+
+        setSelectedCoordinates(coords);
+        setHazardData(null);
+        setErrorMessage(null);
+        setNominatimResults([]);
+        setDetectedLocationLabel(null);
+        skipNextAutocomplete.current = true;
+        setPlaceInput('Selected location');
+
+        await assessHazard(coords);
+    };
+
+    const assessHazard = async (
+        coords?: {
+            lat: number;
+            lng: number;
+        } | null
+    ) => {
+        const targetCoordinates = coords ?? selectedCoordinates;
+
+        if (!targetCoordinates || loading) {
             return;
         }
 
+        activeAssessController.current?.abort();
+
+        const controller = new AbortController();
+        activeAssessController.current = controller;
+
+        const requestId = ++latestAssessRequestId.current;
+
         setLoading(true);
+        setErrorMessage(null);
+
         try {
             const response = await fetch('/api/hazardhunter', {
                 method: 'POST',
@@ -157,71 +656,122 @@ const HazardHunter = () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    latitude: selectedCoordinates.lat,
-                    longitude: selectedCoordinates.lng,
+                    latitude: targetCoordinates.lat,
+                    longitude: targetCoordinates.lng,
                 }),
+                signal: controller.signal,
             });
 
-            const result: ApiResponse = await response.json();
+            const result = await response.json();
 
-            if (result.data && result.data.success) {
-                setHazardData(result.data.data);
+            if (requestId !== latestAssessRequestId.current) {
+                return;
+            }
+
+            if (!response.ok) {
+                setHazardData(null);
+                setErrorMessage(
+                    result?.data?.message ||
+                    result?.message ||
+                    'Failed to fetch hazard assessment data'
+                );
+                return;
+            }
+
+            if (result?.data?.success && result?.data?.data) {
+                const payload = result.data.data;
+                const normalizedHazardData = payload?.data ?? payload;
+
+                setHazardData(normalizedHazardData);
+                setIsResultsPanelOpen(true);
             } else {
-                alert('Failed to fetch hazard assessment data');
+                setHazardData(null);
+                setErrorMessage(
+                    result?.data?.message || 'Failed to fetch hazard assessment data'
+                );
             }
         } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                return;
+            }
+
             console.error('Error assessing hazard:', error);
-            alert('Error occurred while fetching hazard assessment');
+            setHazardData(null);
+            setErrorMessage('Error occurred while fetching hazard assessment');
         } finally {
-            setLoading(false);
+            if (requestId === latestAssessRequestId.current) {
+                setLoading(false);
+            }
         }
     };
 
-    const getAssessmentColor = (assessment: string) => {
-        if (assessment.toLowerCase().includes('safe')) return 'success';
-        if (assessment.toLowerCase().includes('prone')) return 'danger';
-        if (assessment.toLowerCase().includes('outside')) return 'default';
+    const getAssessmentColor = (
+        assessment: string
+    ): 'success' | 'danger' | 'warning' | 'default' => {
+        const value = assessment.toLowerCase();
+        if (value.includes('safe')) return 'success';
+        if (value.includes('prone')) return 'danger';
+        if (value.includes('outside')) return 'default';
         return 'warning';
     };
 
     const getHazardIcon = (hazardType: string) => {
-        const iconClass = 'w-6 h-6';
+        const iconClass = 'text-lg leading-none';
         switch (hazardType.toLowerCase()) {
             case 'fault':
             case 'rupture':
             case 'shaking':
-                return (
-                    <AlertTriangle className={`${iconClass} text-red-600`} />
-                );
+                return <span className={iconClass}>⚠️</span>;
             case 'landslide':
-                return <div className={`${iconClass} text-amber-600`}>🏔️</div>;
+                return <span className={iconClass}>🏔️</span>;
             case 'liquefaction':
-                return <div className={`${iconClass} text-blue-600`}>💧</div>;
+                return <span className={iconClass}>💧</span>;
             case 'tsunami':
-                return <div className={`${iconClass} text-blue-800`}>🌊</div>;
+                return <span className={iconClass}>🌊</span>;
             case 'flood':
-                return <div className={`${iconClass} text-blue-500`}>🌊</div>;
+                return <span className={iconClass}>🌊</span>;
             case 'storm':
-                return <div className={`${iconClass} text-purple-600`}>⛈️</div>;
+                return <span className={iconClass}>⛈️</span>;
             case 'ashfall':
-                return <div className={`${iconClass} text-gray-600`}>🌋</div>;
+                return <span className={iconClass}>🌋</span>;
             default:
-                return (
-                    <AlertTriangle className={`${iconClass} text-orange-600`} />
-                );
+                return <span className={iconClass}>⚠️</span>;
         }
     };
 
     const reset = () => {
         setPlaceInput('');
+        setDetectedLocationLabel(null);
         setNominatimResults([]);
-        setSelectedCoordinates(null);
+        setSelectedCoordinates({
+            lat: 14.5995,
+            lng: 120.9842,
+        });
         setHazardData(null);
     };
 
+    const mapCoordinates =
+        hazardData?.coordinates?.latitude && hazardData?.coordinates?.longitude
+            ? {
+                lat: Number.parseFloat(hazardData.coordinates.latitude),
+                lng: Number.parseFloat(hazardData.coordinates.longitude),
+            }
+            : selectedCoordinates;
+
+    const hasValidMapCoordinates =
+        !!mapCoordinates &&
+        Number.isFinite(mapCoordinates.lat) &&
+        Number.isFinite(mapCoordinates.lng);
+
+    const selectedLocationLabel =
+        hazardData?.location?.name ||
+        placeInput ||
+        detectedLocationLabel ||
+        'Selected location';
+
     const getTotalHazards = () => {
         if (!hazardData) return 0;
-        const hazards = [
+        return [
             hazardData.activeFault,
             hazardData.groundRupture,
             hazardData.groundShaking,
@@ -232,12 +782,12 @@ const HazardHunter = () => {
             hazardData.ril,
             hazardData.stormSurge,
             hazardData.ashfall,
-        ];
-        return hazards.length;
+        ].length;
     };
 
     const getHighRiskCount = () => {
         if (!hazardData) return 0;
+
         const hazards = [
             hazardData.activeFault.assessment,
             hazardData.groundRupture.assessment,
@@ -250,6 +800,7 @@ const HazardHunter = () => {
             hazardData.stormSurge.assessment,
             hazardData.ashfall.assessment,
         ];
+
         return hazards.filter(
             (assessment) =>
                 assessment.toLowerCase().includes('prone') ||
@@ -257,952 +808,879 @@ const HazardHunter = () => {
         ).length;
     };
 
+    const FloatingPanelHazardCard = ({
+        title,
+        subtitle,
+        assessment,
+        icon,
+        detailValue,
+        summary,
+        onClick,
+    }: HazardResultCardProps) => {
+        const chipColor = getAssessmentColor(assessment);
+
+        return (
+            <button
+                type="button"
+                onClick={onClick}
+                className="w-full text-left rounded-2xl border border-[#eadbc7] bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition-all duration-200 p-4"
+            >
+                <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-[#f8f1e8] border border-[#eadbc7] shrink-0 flex items-center justify-center w-10 h-10">
+                        {icon}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                        <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-slate-800 leading-tight break-words">
+                                {title}
+                            </h4>
+                            <p className="text-xs text-slate-500 mt-0.5 break-words">
+                                {subtitle}
+                            </p>
+                        </div>
+
+                        {detailValue && (
+                            <p className="text-xs text-slate-700 mt-3 font-medium line-clamp-2 break-words">
+                                {detailValue}
+                            </p>
+                        )}
+
+                        {summary && (
+                            <div
+                                className="text-xs text-slate-600 mt-2 line-clamp-3 break-words [&_b]:font-bold"
+                                dangerouslySetInnerHTML={{
+                                    __html: summary,
+                                }}
+                            />
+                        )}
+
+                        <div className="mt-4 pt-3 border-t border-[#efe3d6]">
+                            <Chip
+                                size="sm"
+                                color={chipColor}
+                                variant="flat"
+                                classNames={{
+                                    base: 'max-w-full',
+                                    content: 'max-w-[220px] truncate font-semibold text-[11px]',
+                                }}
+                                title={assessment}
+                            >
+                                {assessment}
+                            </Chip>
+                        </div>
+                    </div>
+                </div>
+            </button>
+        );
+    };
+
+    const SectionHeader = ({
+        title,
+        subtitle,
+    }: {
+        title: string;
+        subtitle: string;
+    }) => (
+        <div className="mb-6">
+            <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                <span className="w-1.5 h-8 rounded-full bg-gradient-to-b from-[#5A3A1A] to-[#B88B5A]" />
+                {title}
+            </h2>
+            <p className="text-sm text-slate-500 mt-1 pl-5">{subtitle}</p>
+        </div>
+    );
+
+    const OverviewStatCard = ({
+        title,
+        subtitle,
+        value,
+        icon,
+        accentBarClass,
+    }: OverviewStatCardProps) => (
+        <Card className="h-full rounded-3xl border border-[#eadbc7] bg-white/90 shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <CardBody className="p-0 h-full flex flex-col">
+                <div className="p-6 flex-1 flex flex-col">
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                        <div className="min-w-0">
+                            <p className="text-base font-bold text-slate-800 leading-tight">
+                                {title}
+                            </p>
+                            <p className="text-sm text-slate-500 leading-tight mt-1">
+                                {subtitle}
+                            </p>
+                        </div>
+
+                        <div className="shrink-0">
+                            {icon}
+                        </div>
+                    </div>
+
+                    <div className="flex-1">
+                        {value}
+                    </div>
+                </div>
+
+                <div className="h-1.5 w-full mt-auto bg-[#f4ede5]">
+                    <div className={`h-full w-full ${accentBarClass}`} />
+                </div>
+            </CardBody>
+        </Card>
+    );
+
+    const HazardResultCard = ({
+    title,
+    subtitle,
+    assessment,
+    icon,
+    summary,
+    detailLabel,
+    detailValue,
+    explanation,
+    onClick,
+}: HazardResultCardProps) => {
+    const chipColor = getAssessmentColor(assessment);
+
+    return (
+        <Card
+            isPressable
+            onPress={onClick}
+            className="h-full min-h-[340px] rounded-3xl border border-[#eadbc7] bg-white/90 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-visible cursor-pointer"
+        >
+            <CardHeader className="px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
+                <div className="flex items-center gap-3 w-full min-w-0">
+                    <div className="rounded-2xl bg-[#f8f1e8] border border-[#eadbc7] shrink-0 flex items-center justify-center w-11 h-11">
+                        {icon}
+                    </div>
+
+                    <div className="min-w-0 pr-1 flex flex-col justify-center">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-800 leading-tight break-words">
+                            {title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-500 leading-tight">
+                            {subtitle}
+                        </p>
+                    </div>
+                </div>
+            </CardHeader>
+
+            <CardBody className="px-5 pb-5 pt-1 sm:px-6 sm:pb-6 flex flex-col min-w-0 h-full overflow-visible">
+                <div className="flex flex-col gap-3 flex-1">
+                    {detailValue && (
+                        <div className="rounded-2xl border border-[#efe3d6] bg-[#fcfaf7] px-4 py-3 min-h-[78px]">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 font-bold mb-2">
+                                {detailLabel}
+                            </p>
+                            <p className="text-[14px] font-semibold text-slate-800 leading-6 break-words line-clamp-2">
+                                {detailValue}
+                            </p>
+                        </div>
+                    )}
+
+                    {summary && (
+                        <div className="rounded-2xl border border-[#efe3d6] bg-[#f8f4ee] px-4 py-3 min-h-[116px]">
+                            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 font-bold mb-2">
+                                Summary
+                            </p>
+                            <p className="text-[14px] text-slate-700 leading-6 line-clamp-3 break-words">
+                                {summary}
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="mt-5 pt-4 border-t border-[#efe3d6] min-w-0">
+                    <Chip
+                        size="sm"
+                        color={chipColor}
+                        variant="flat"
+                        classNames={{
+                            base: 'max-w-full min-w-0',
+                            content: 'truncate font-semibold text-[13px]',
+                        }}
+                        title={assessment}
+                    >
+                        {assessment}
+                    </Chip>
+                </div>
+            </CardBody>
+        </Card>
+    );
+};
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#f6f1e8] via-[#efe4d4] to-[#e8d7c2]">
-            <div className="container mx-auto px-4 py-8 max-w-7xl">
-                {/* ✅ COMBINED HERO + SEARCH (ONE CARD) */}
-                    <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 overflow-hidden rounded-[28px]">
-
-                    {/* HERO */}
+            <div className="mx-auto w-full px-6 py-8 max-w-[1600px]">
+                <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 overflow-hidden rounded-[28px]">
                     <div className="bg-gradient-to-r from-[#5A3A1A] via-[#7B5A3A] to-[#9D7C5A]">
-                        <div className="p-6">
-                        <h1 className="text-4xl lg:text-5xl font-black text-white drop-shadow-[0_12px_22px_rgba(0,0,0,0.35)] mb-2">
-                            HazardHunter Dashboard
-                        </h1>
-                        <p className="text-white/85 text-lg">
-                            Comprehensive natural hazard risk assessment and safety analysis for any location
-                        </p>
+                        <div className="p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                                <h1 className="text-4xl lg:text-5xl font-black text-white drop-shadow-[0_12px_22px_rgba(0,0,0,0.35)] mb-2">
+                                    HazardHunter Dashboard
+                                </h1>
+                                <p className="text-white/85 text-lg">
+                                    Comprehensive natural hazard risk assessment and
+                                    safety analysis for any location
+                                </p>
+                            </div>
+                            <a
+                                href="https://hazardhunter.georisk.gov.ph/map"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 bg-white text-[#5A3A1A] font-semibold px-5 py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                            >
+                                <MapPinned className="w-6 h-6 text-[#5A3A1A]" />
+
+                                <span className="whitespace-nowrap">
+                                    HazardHunterPH
+                                </span>
+                            </a>
                         </div>
                     </div>
 
-                    {/* SEARCH SECTION ATTACHED */}
                     <div className="border-t border-white/30">
                         <CardBody className="p-8">
-                        <div className="space-y-4">
+                            <div className="space-y-4">
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <Input
+                                        placeholder="Enter location (e.g., Manila, Cebu, Davao...)"
+                                        value={placeInput}
+                                        onChange={(e) => {
+                                            setPlaceInput(e.target.value);
+                                            setSelectedCoordinates(null); // reset selection if typing again
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                searchPlace();
+                                            }
+                                        }}
+                                        className="flex-1"
+                                        classNames={{
+                                            input: 'bg-white/80 text-slate-700 placeholder:text-slate-500',
+                                            inputWrapper:
+                                                'bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm border-2 border-[#d9c7b2] shadow-lg hover:shadow-xl hover:border-[#bfa58a] focus-within:border-[#9D7C5A] focus-within:shadow-xl transition-all duration-300 h-12',
+                                        }}
+                                        startContent={
+                                            <MapPin className="h-5 w-5 text-[#7B5A3A]" />
+                                        }
+                                    />
 
-                            <div className="flex flex-col sm:flex-row gap-4">
-                            <Input
-                                placeholder="Enter location (e.g., Manila, Cebu, Davao...)"
-                                value={placeInput}
-                                onChange={(e) => setPlaceInput(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && searchPlace()}
-                                className="flex-1"
-                                classNames={{
-                                input: 'bg-white/80 text-slate-700 placeholder:text-slate-500',
-                                inputWrapper:
-                                    'bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm border-2 border-[#d9c7b2] shadow-lg hover:shadow-xl hover:border-[#bfa58a] focus-within:border-[#9D7C5A] focus-within:shadow-xl transition-all duration-300 h-12',
-                                }}
-                                startContent={<MapPin className="h-5 w-5 text-[#7B5A3A]" />}
-                            />
-
-                            <Button
-                                size="lg"
-                                onPress={searchPlace}
-                                isLoading={searchingPlace}
-                                disabled={!placeInput.trim()}
-                                className="min-w-[110px] bg-gradient-to-r from-[#5A3A1A] via-[#7B5A3A] to-[#9D7C5A] text-white shadow-lg hover:shadow-xl transition-all"
-                                startContent={<Search className="w-5 h-5" />}
-                            >
-                                Search
-                            </Button>
-
-                            <Button
-                                size="lg"
-                                onPress={assessHazard}
-                                isLoading={loading}
-                                disabled={!selectedCoordinates}
-                                className="min-w-[110px] bg-gradient-to-r from-[#5A3A1A] via-[#7B5A3A] to-[#9D7C5A] text-white shadow-lg hover:shadow-xl transition-all"
-                            >
-                                Assess
-                            </Button>
-
-                            <Button
-                                variant="flat"
-                                size="lg"
-                                onPress={reset}
-                                className="min-w-[110px] shadow-lg hover:shadow-xl transition-all"
-                            >
-                                Reset
-                            </Button>
-                            </div>
-
-                            {/* Place Results */}
-                            {nominatimResults.length > 0 && (
-                            <div className="space-y-3">
-                                <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                <Globe className="w-4 h-4 text-[#7B5A3A]" />
-                                Select a location from the results:
-                                </p>
-                                <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg max-h-60 overflow-y-auto">
-                                {nominatimResults.map((result) => (
-                                    <div
-                                    key={result.place_id}
-                                    className="p-4 cursor-pointer hover:bg-[#f4ede3] transition-all duration-200 border-b border-slate-100/50 last:border-b-0"
-                                    onClick={() => selectPlace(result)}
+                                    <Button
+                                        size="lg"
+                                        onPress={() => searchPlace()}
+                                        isLoading={searchingPlace}
+                                        disabled={!placeInput.trim()}
+                                        className="min-w-[110px] bg-gradient-to-r from-[#5A3A1A] via-[#7B5A3A] to-[#9D7C5A] text-white shadow-lg hover:shadow-xl transition-all"
+                                        startContent={
+                                            <Search className="w-5 h-5" />
+                                        }
                                     >
-                                    <p className="font-semibold text-sm text-slate-800">
-                                        {result.display_name}
-                                    </p>
+                                        Search
+                                    </Button>
+
+                                    <Button
+                                        size="lg"
+                                        onPress={() => assessHazard()}
+                                        isLoading={loading}
+                                        disabled={!selectedCoordinates}
+                                        className="min-w-[110px] bg-gradient-to-r from-[#5A3A1A] via-[#7B5A3A] to-[#9D7C5A] text-white shadow-lg hover:shadow-xl transition-all"
+                                    >
+                                        Assess
+                                    </Button>
+
+                                    <Button
+                                        variant="flat"
+                                        size="lg"
+                                        onPress={reset}
+                                        className="min-w-[110px] shadow-lg hover:shadow-xl transition-all"
+                                    >
+                                        Reset
+                                    </Button>
+                                </div>
+
+                                {errorMessage && (
+                                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                                        <p className="text-sm font-medium text-red-700">{errorMessage}</p>
                                     </div>
-                                ))}
+                                )}
+
+                                {nominatimResults.length > 0 && (
+                                    <div className="space-y-3">
+                                        <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                            <Globe className="w-4 h-4 text-[#7B5A3A]" />
+                                            Select a location from the results:
+                                        </p>
+                                        <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg max-h-60 overflow-y-auto">
+                                            {nominatimResults.map((result) => (
+                                                <div
+                                                    key={result.place_id}
+                                                    className="p-4 cursor-pointer hover:bg-[#f4ede3] transition-all duration-200 border-b border-slate-100/50 last:border-b-0"
+                                                    onClick={() =>
+                                                        selectPlace(result)
+                                                    }
+                                                >
+                                                    <p className="font-semibold text-sm text-slate-800">
+                                                        {result.display_name}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </CardBody>
+                    </div>
+                </Card>
+
+                <div className="relative">
+                    <div className="mb-4">
+                        <h2 className="text-2xl font-black text-slate-800">
+                            Hazard Assessment Map
+                        </h2>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Double click anywhere on the map to choose a location and assess hazards instantly.
+                        </p>
+                    </div>
+
+                    <div className="relative rounded-[32px] overflow-hidden border border-[#d9c7b2] shadow-xl bg-white/60 backdrop-blur-sm">
+                        {hasValidMapCoordinates ? (
+                            <div className="h-[65vh] min-h-[640px] max-h-[820px]">
+                                <HazardHunterMap
+                                    lat={mapCoordinates.lat}
+                                    lng={mapCoordinates.lng}
+                                    locationName={selectedLocationLabel}
+                                    highRiskCount={hazardData ? getHighRiskCount() : 0}
+                                    totalHazards={hazardData ? getTotalHazards() : 0}
+                                    onLocationSelect={handleMapLocationSelect}
+                                    onLocationDoubleClick={handleMapLocationDoubleClick}
+                                    onOpenReportIncident={onOpenReportIncident}
+                                />
+                            </div>
+                        ) : (
+                            <div className="h-[760px] flex items-center justify-center bg-gradient-to-br from-[#f6f1e8] via-[#efe4d4] to-[#e8d7c2]">
+                                <div className="max-w-lg text-center px-6">
+                                    <div className="w-20 h-20 mx-auto rounded-3xl bg-white shadow-md border border-[#eadbc7] flex items-center justify-center mb-6">
+                                        <LocateFixed className="w-10 h-10 text-[#7B5A3A]" />
+                                    </div>
+
+                                    <h3 className="text-3xl font-black text-slate-800 mb-3">
+                                        Select a Location
+                                    </h3>
+                                    <p className="text-slate-600 leading-relaxed text-base">
+                                        Use the search bar or click anywhere on the map to choose a location.
+                                        Then press Assess to view the hazard summary and detailed results in the side panel.
+                                    </p>
                                 </div>
                             </div>
-                            )}
+                        )}
 
-                        </div>
-                        </CardBody>
-                    </div>
-                    </Card>
-
-                {/* Stats Section */}
-                {loading ? (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <div className="w-1 h-8 bg-gradient-to-b from-[#5a3a1a] to-[#a47445] rounded-full"></div>
-                            Assessment Overview
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {Array.from({ length: 3 }).map((_, index) => (
-                                <Card
-                                    key={index}
-                                    className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20"
-                                >
-                                    <CardBody className="p-6">
-                                        <div className="flex items-center gap-4 mb-4">
-                                            <Skeleton className="w-14 h-14 rounded-xl">
-                                                <div className="h-14"></div>
-                                            </Skeleton>
-                                            <div className="flex-1">
-                                                <Skeleton className="w-40 h-6 rounded-lg mb-2">
-                                                    <div className="h-6"></div>
-                                                </Skeleton>
-                                                <Skeleton className="w-32 h-4 rounded-lg">
-                                                    <div className="h-4"></div>
-                                                </Skeleton>
-                                            </div>
-                                        </div>
-                                        <div className="mb-3">
-                                            <Skeleton className="w-20 h-12 rounded-lg mb-2">
-                                                <div className="h-12"></div>
-                                            </Skeleton>
-                                            <Skeleton className="w-24 h-6 rounded-lg">
-                                                <div className="h-6"></div>
-                                            </Skeleton>
-                                        </div>
-                                        <Skeleton className="w-full h-2 rounded-full">
-                                            <div className="h-2"></div>
-                                        </Skeleton>
-                                    </CardBody>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                ) : hazardData ? (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <div className="w-1 h-8 bg-gradient-to-b from-[#5a3a1a] to-[#a47445] rounded-full"></div>
-                            Assessment Overview
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Location Info */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
-                                <CardBody className="p-6">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="p-3 bg-blue-100 rounded-xl">
-                                            <Globe className="w-8 h-8 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-slate-800">
-                                                Assessment Location
-                                            </h3>
-                                            <p className="text-sm text-slate-500">
-                                                Current target area
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <span className="text-sm font-bold text-slate-900 block truncate">
-                                            {hazardData.location.name}
-                                        </span>
-                                        <span className="text-xs text-slate-500">
-                                            {hazardData.coordinates.latitude},{' '}
-                                            {hazardData.coordinates.longitude}
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full w-full transition-all duration-500"></div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-
-                            {/* Total Hazards */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
-                                <CardBody className="p-6">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="p-3 bg-orange-100 rounded-xl">
-                                            <AlertTriangle className="w-8 h-8 text-orange-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-slate-800">
-                                                Total Hazards
-                                            </h3>
-                                            <p className="text-sm text-slate-500">
-                                                Assessed categories
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <span className="text-4xl font-bold text-slate-900">
-                                            {getTotalHazards()}
-                                        </span>
-                                        <span className="text-lg text-slate-500 ml-2">
-                                            hazards
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                        <div className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full w-full transition-all duration-500"></div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-
-                            {/* High Risk Count */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
-                                <CardBody className="p-6">
-                                    <div className="flex items-center gap-4 mb-4">
-                                        <div className="p-3 bg-red-100 rounded-xl">
-                                            <Clock className="w-8 h-8 text-red-600" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-slate-800">
-                                                High Risk Areas
-                                            </h3>
-                                            <p className="text-sm text-slate-500">
-                                                Requires attention
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mb-3">
-                                        <span className="text-4xl font-bold text-slate-900">
-                                            {getHighRiskCount()}
-                                        </span>
-                                        <span className="text-lg text-slate-500 ml-2">
-                                            risks
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                        <div className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full w-full transition-all duration-500"></div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        </div>
-                    </div>
-                ) : null}
-
-                {/* Results Section */}
-                {loading ? (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <div className="w-1 h-8 bg-gradient-to-b from-[#5a3a1a] to-[#a47445] rounded-full"></div>
-                            Hazard Assessment Results
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {Array.from({ length: 9 }).map((_, index) => (
-                                <Card
-                                    key={index}
-                                    className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20"
-                                >
-                                    <CardHeader className="pb-2">
-                                        <div className="flex justify-between items-start w-full">
-                                            <div className="flex items-center gap-3">
-                                                <Skeleton className="w-6 h-6 rounded">
-                                                    <div className="h-6"></div>
-                                                </Skeleton>
-                                                <div>
-                                                    <Skeleton className="w-32 h-5 rounded mb-1">
-                                                        <div className="h-5"></div>
-                                                    </Skeleton>
-                                                    <Skeleton className="w-24 h-3 rounded">
-                                                        <div className="h-3"></div>
-                                                    </Skeleton>
-                                                </div>
-                                            </div>
-                                            <Skeleton className="w-20 h-6 rounded-full">
-                                                <div className="h-6"></div>
-                                            </Skeleton>
-                                        </div>
-                                    </CardHeader>
-                                    <CardBody className="pt-0">
-                                        <div className="space-y-3 mt-4">
-                                            <Card className="bg-slate-50/50">
-                                                <CardBody className="p-3">
-                                                    <Skeleton className="w-32 h-3 rounded mb-1">
-                                                        <div className="h-3"></div>
-                                                    </Skeleton>
-                                                    <Skeleton className="w-24 h-4 rounded">
-                                                        <div className="h-4"></div>
-                                                    </Skeleton>
-                                                </CardBody>
-                                            </Card>
-                                            <Skeleton className="w-full h-12 rounded-lg">
-                                                <div className="h-12"></div>
-                                            </Skeleton>
-                                        </div>
-                                    </CardBody>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                ) : hazardData ? (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <div className="w-1 h-8 bg-gradient-to-b from-[#5a3a1a] to-[#a47445] rounded-full"></div>
-                            Hazard Assessment Results
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* Active Fault */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('fault')}
+                        {isResultsPanelOpen && (
+                            <div className="absolute top-4 right-4 bottom-4 w-[380px] max-w-[calc(100%-2rem)] z-[1000]">
+                                <div className="h-full rounded-[28px] border border-white/40 bg-white/90 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col">
+                                    <div className="px-5 py-4 border-b border-[#efe3d6] bg-white/80">
+                                        <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Active Fault
+                                                <h3 className="text-lg font-black text-slate-800">
+                                                    Assessment Results
                                                 </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Seismic fault lines
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    Live location summary and hazard assessment
                                                 </p>
                                             </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.activeFault
-                                                    .assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.activeFault
-                                                    .assessment
-                                            }
-                                        >
-                                            {hazardData.activeFault.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-slate-50/50 ">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Distance & Direction:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {
-                                                        hazardData.activeFault
-                                                            .distance
-                                                    }{' '}
-                                                    {
-                                                        hazardData.activeFault
-                                                            .units
-                                                    }{' '}
-                                                    {
-                                                        hazardData.activeFault
-                                                            .direction
-                                                    }
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                        <Card className="bg-slate-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Fault Name:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {
-                                                        hazardData.activeFault
-                                                            .fault_name
-                                                    }
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                    </div>
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                        <div className="group relative">
-                                            <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                More Information
-                                            </span>
-                                            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                {
-                                                    hazardData.activeFault
-                                                        .explanation
-                                                }
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
 
-                            {/* Ground Rupture */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('rupture')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Ground Rupture
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Surface breaking
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.groundRupture
-                                                    .assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.groundRupture
-                                                    .assessment
-                                            }
-                                        >
-                                            {
-                                                hazardData.groundRupture
-                                                    .assessment
-                                            }
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-slate-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Distance & Direction:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {
-                                                        hazardData.groundRupture
-                                                            .distance
-                                                    }{' '}
-                                                    {
-                                                        hazardData.groundRupture
-                                                            .units
-                                                    }{' '}
-                                                    {
-                                                        hazardData.groundRupture
-                                                            .direction
-                                                    }
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                        <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                            <div className="group relative">
-                                                <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                    More Information
-                                                </span>
-                                                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                    {
-                                                        hazardData.groundRupture
-                                                            .explanation
-                                                    }
-                                                </div>
-                                            </div>
+                                            <Button
+                                                isIconOnly
+                                                size="sm"
+                                                variant="flat"
+                                                className="rounded-xl"
+                                                onPress={() => setIsResultsPanelOpen(false)}
+                                            >
+                                                <PanelRightClose className="w-4 h-4" />
+                                            </Button>
                                         </div>
                                     </div>
-                                </CardBody>
-                            </Card>
 
-                            {/* Ground Shaking */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('shaking')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Ground Shaking
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Seismic intensity
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.groundShaking
-                                                    .assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.groundShaking
-                                                    .assessment
-                                            }
-                                        >
-                                            {
-                                                hazardData.groundShaking
-                                                    .assessment
-                                            }
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                        <div className="group relative">
-                                            <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                More Information
-                                            </span>
-                                            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                {
-                                                    hazardData.groundShaking
-                                                        .explanation[0]
-                                                }
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
+                                    <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
+                                        <Card className="rounded-2xl border border-[#eadbc7] bg-[#fcfaf7] shadow-none">
+                                            <CardBody className="p-4 space-y-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-bold">
+                                                            Selected Location
+                                                        </p>
+                                                        <p className="text-sm font-bold text-slate-800 mt-2 break-words">
+                                                            {selectedLocationLabel}
+                                                        </p>
+                                                    </div>
 
-                            {/* Earthquake-Induced Landslide */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('landslide')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Earthquake Landslide
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Seismic slope failure
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.eil.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={hazardData.eil.assessment}
-                                        >
-                                            {hazardData.eil.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0">
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                        <div className="group relative">
-                                            <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                More Information
-                                            </span>
-                                            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                {hazardData.eil.explanation[0]}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
+                                                    <Button
+                                                        isIconOnly
+                                                        size="sm"
+                                                        variant="flat"
+                                                        className="rounded-xl border border-[#eadbc7] bg-white text-slate-700 shadow-sm hover:bg-[#f8f4ee] shrink-0"
+                                                        onPress={handleDownloadAssessmentPDF}
+                                                        isDisabled={!hazardData}
+                                                        title="Download PDF"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
 
-                            {/* Liquefaction */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('liquefaction')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Liquefaction
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Soil liquefaction risk
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.liquefaction
-                                                    .assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.liquefaction
-                                                    .assessment
-                                            }
-                                        >
-                                            {hazardData.liquefaction.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                        <div className="group relative">
-                                            <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                More Information
-                                            </span>
-                                            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                {hazardData.liquefaction.explanation.join(
-                                                    ' '
+                                                {hasValidMapCoordinates && (
+                                                    <p className="text-xs text-slate-500 break-all">
+                                                        {mapCoordinates.lat.toFixed(6)}, {mapCoordinates.lng.toFixed(6)}
+                                                    </p>
                                                 )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
 
-                            {/* Tsunami */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('tsunami')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Tsunami
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Seismic sea waves
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.tsunami.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.tsunami.assessment
-                                            }
-                                        >
-                                            {hazardData.tsunami.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-blue-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Assessment Result:
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="rounded-2xl bg-white border border-[#eadbc7] p-3">
+                                                        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-500 font-bold">
+                                                            Hazards
+                                                        </p>
+                                                        <p className="text-2xl font-black text-slate-900 mt-2">
+                                                            {hazardData ? getTotalHazards() : 0}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-2xl bg-white border border-[#eadbc7] p-3">
+                                                        <p className="text-[11px] uppercase tracking-[0.1em] text-slate-500 font-bold">
+                                                            High Risk
+                                                        </p>
+                                                        <p className="text-2xl font-black text-slate-900 mt-2">
+                                                            {hazardData ? getHighRiskCount() : 0}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {hazardData.tsunami.result}
-                                                </div>
+
+                                                {!hazardData && !loading && (
+                                                    <div className="rounded-2xl border border-dashed border-[#d9c7b2] bg-white p-4">
+                                                        <p className="text-sm text-slate-600 leading-relaxed">
+                                                            Select a location from search results or click the map, then press <span className="font-semibold">Assess</span> to view hazard results here.
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </CardBody>
                                         </Card>
-                                        <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                            <div className="group relative">
-                                                <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                    More Information
-                                                </span>
-                                                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                    {hazardData.tsunami.explanation.join(
-                                                        ' '
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
 
-                            {/* Flood */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('flood')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Flood Risk
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Water inundation
-                                                </p>
+                                        {loading ? (
+                                            <div className="space-y-3">
+                                                {Array.from({ length: 5 }).map((_, index) => (
+                                                    <Card
+                                                        key={index}
+                                                        className="rounded-2xl border border-[#eadbc7] bg-white/90 shadow-none"
+                                                    >
+                                                        <CardBody className="p-4 space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <Skeleton className="w-10 h-10 rounded-xl" />
+                                                                <div className="flex-1">
+                                                                    <Skeleton className="w-24 h-4 rounded mb-2" />
+                                                                    <Skeleton className="w-20 h-3 rounded" />
+                                                                </div>
+                                                            </div>
+                                                            <Skeleton className="w-full h-12 rounded-xl" />
+                                                            <Skeleton className="w-28 h-5 rounded-full" />
+                                                        </CardBody>
+                                                    </Card>
+                                                ))}
                                             </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.flood.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={hazardData.flood.assessment}
-                                        >
-                                            {hazardData.flood.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-blue-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Assessment Result:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {hazardData.flood.result}
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                        <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                            <div className="group relative">
-                                                <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                    More Information
-                                                </span>
-                                                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                    {hazardData.flood.explanation.join(
-                                                        ' '
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-
-                            {/* Rain-Induced Landslide */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('landslide')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Rain Landslide
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Rainfall-induced slides
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.ril.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={hazardData.ril.assessment}
-                                        >
-                                            {hazardData.ril.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-purple-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Assessment Result:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {hazardData.ril.result}
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                        <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                            <div className="group relative">
-                                                <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                    More Information
-                                                </span>
-                                                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                    {hazardData.ril.explanation.join(
-                                                        ' '
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-
-                            {/* Storm Surge */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('storm')}
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Storm Surge
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Coastal storm waves
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.stormSurge.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.stormSurge.assessment
-                                            }
-                                        >
-                                            {hazardData.stormSurge.assessment}
-                                        </Chip>
-                                    </div>
-                                </CardHeader>
-                                <CardBody className="pt-0 flex-1 flex flex-col justify-between">
-                                    <div className="space-y-3 mt-4">
-                                        <Card className="bg-purple-50/50">
-                                            <CardBody className="p-3">
-                                                <div className="text-xs font-medium text-slate-600 mb-1">
-                                                    Assessment Result:
-                                                </div>
-                                                <div className="text-sm font-bold text-slate-800">
-                                                    {
-                                                        hazardData.stormSurge
-                                                            .result
+                                        ) : hazardData ? (
+                                            <div className="space-y-3">
+                                                <FloatingPanelHazardCard
+                                                    title="Active Fault"
+                                                    subtitle="Seismic fault lines"
+                                                    assessment={hazardData.activeFault.assessment}
+                                                    icon={getHazardIcon('fault')}
+                                                    detailValue={`${hazardData.activeFault.distance} ${hazardData.activeFault.units} ${hazardData.activeFault.direction}`}
+                                                    summary={`Nearest mapped fault: ${hazardData.activeFault.fault_name}`}
+                                                    explanation={hazardData.activeFault.explanation}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Active Fault',
+                                                            subtitle: 'Seismic fault lines',
+                                                            assessment: hazardData.activeFault.assessment,
+                                                            icon: getHazardIcon('fault'),
+                                                            detailLabel: 'Distance & Direction',
+                                                            detailValue: `${hazardData.activeFault.distance} ${hazardData.activeFault.units} ${hazardData.activeFault.direction}`,
+                                                            summary: `Nearest mapped fault: ${hazardData.activeFault.fault_name}`,
+                                                            explanation: hazardData.activeFault.explanation,
+                                                        })
                                                     }
-                                                </div>
-                                            </CardBody>
-                                        </Card>
-                                        <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                            <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                            <div className="group relative">
-                                                <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                    More Information
-                                                </span>
-                                                <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                    {hazardData.stormSurge.explanation.join(
-                                                        ' '
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
+                                                />
 
-                            {/* Ashfall */}
-                            <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2 h-80">
-                                <CardHeader className="pb-2">
-                                    <div className="flex justify-between items-start w-full">
-                                        <div className="flex items-center gap-3">
-                                            {getHazardIcon('ashfall')}
+                                                <FloatingPanelHazardCard
+                                                    title="Ground Rupture"
+                                                    subtitle="Surface breaking"
+                                                    assessment={hazardData.groundRupture.assessment}
+                                                    icon={getHazardIcon('rupture')}
+                                                    detailValue={`${hazardData.groundRupture.distance} ${hazardData.groundRupture.units} ${hazardData.groundRupture.direction}`}
+                                                    summary="Potential surface displacement risk related to nearby fault movement."
+                                                    explanation={hazardData.groundRupture.explanation}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Ground Rupture',
+                                                            subtitle: 'Surface breaking',
+                                                            assessment: hazardData.groundRupture.assessment,
+                                                            icon: getHazardIcon('rupture'),
+                                                            detailLabel: 'Distance & Direction',
+                                                            detailValue: `${hazardData.groundRupture.distance} ${hazardData.groundRupture.units} ${hazardData.groundRupture.direction}`,
+                                                            summary: 'Potential surface displacement risk related to nearby fault movement.',
+                                                            explanation: hazardData.groundRupture.explanation,
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Ground Shaking"
+                                                    subtitle="Seismic intensity"
+                                                    assessment={hazardData.groundShaking.assessment}
+                                                    icon={getHazardIcon('shaking')}
+                                                    summary={hazardData.groundShaking.explanation?.[0]}
+                                                    explanation={hazardData.groundShaking.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Ground Shaking',
+                                                            subtitle: 'Seismic intensity',
+                                                            assessment: hazardData.groundShaking.assessment,
+                                                            icon: getHazardIcon('shaking'),
+                                                            summary: hazardData.groundShaking.explanation?.[0],
+                                                            explanation: hazardData.groundShaking.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Earthquake Landslide"
+                                                    subtitle="Seismic slope failure"
+                                                    assessment={hazardData.eil.assessment}
+                                                    icon={getHazardIcon('landslide')}
+                                                    summary={hazardData.eil.explanation?.[0]}
+                                                    explanation={hazardData.eil.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Earthquake Landslide',
+                                                            subtitle: 'Seismic slope failure',
+                                                            assessment: hazardData.eil.assessment,
+                                                            icon: getHazardIcon('landslide'),
+                                                            summary: hazardData.eil.explanation?.[0],
+                                                            explanation: hazardData.eil.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Liquefaction"
+                                                    subtitle="Soil liquefaction risk"
+                                                    assessment={hazardData.liquefaction.assessment}
+                                                    icon={getHazardIcon('liquefaction')}
+                                                    summary={hazardData.liquefaction.explanation?.[0]}
+                                                    explanation={hazardData.liquefaction.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Liquefaction',
+                                                            subtitle: 'Soil liquefaction risk',
+                                                            assessment: hazardData.liquefaction.assessment,
+                                                            icon: getHazardIcon('liquefaction'),
+                                                            summary: hazardData.liquefaction.explanation?.[0],
+                                                            explanation: hazardData.liquefaction.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Tsunami"
+                                                    subtitle="Seismic sea waves"
+                                                    assessment={hazardData.tsunami.assessment}
+                                                    icon={getHazardIcon('tsunami')}
+                                                    detailValue={hazardData.tsunami.result}
+                                                    summary={hazardData.tsunami.explanation?.[0]}
+                                                    explanation={hazardData.tsunami.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Tsunami',
+                                                            subtitle: 'Seismic sea waves',
+                                                            assessment: hazardData.tsunami.assessment,
+                                                            icon: getHazardIcon('tsunami'),
+                                                            detailLabel: 'Assessment Result',
+                                                            detailValue: hazardData.tsunami.result,
+                                                            summary: hazardData.tsunami.explanation?.[0],
+                                                            explanation: hazardData.tsunami.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Flood Risk"
+                                                    subtitle="Water inundation"
+                                                    assessment={hazardData.flood.assessment}
+                                                    icon={getHazardIcon('flood')}
+                                                    detailValue={hazardData.flood.result}
+                                                    summary={hazardData.flood.explanation?.[0]}
+                                                    explanation={hazardData.flood.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Flood Risk',
+                                                            subtitle: 'Water inundation',
+                                                            assessment: hazardData.flood.assessment,
+                                                            icon: getHazardIcon('flood'),
+                                                            detailLabel: 'Assessment Result',
+                                                            detailValue: hazardData.flood.result,
+                                                            summary: hazardData.flood.explanation?.[0],
+                                                            explanation: hazardData.flood.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Rain Landslide"
+                                                    subtitle="Rainfall-induced slides"
+                                                    assessment={hazardData.ril.assessment}
+                                                    icon={getHazardIcon('landslide')}
+                                                    detailValue={hazardData.ril.result}
+                                                    summary={hazardData.ril.explanation?.[0]}
+                                                    explanation={hazardData.ril.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Rain Landslide',
+                                                            subtitle: 'Rainfall-induced slides',
+                                                            assessment: hazardData.ril.assessment,
+                                                            icon: getHazardIcon('landslide'),
+                                                            detailLabel: 'Assessment Result',
+                                                            detailValue: hazardData.ril.result,
+                                                            summary: hazardData.ril.explanation?.[0],
+                                                            explanation: hazardData.ril.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Storm Surge"
+                                                    subtitle="Coastal storm waves"
+                                                    assessment={hazardData.stormSurge.assessment}
+                                                    icon={getHazardIcon('storm')}
+                                                    detailValue={hazardData.stormSurge.result}
+                                                    summary={hazardData.stormSurge.explanation?.[0]}
+                                                    explanation={hazardData.stormSurge.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Storm Surge',
+                                                            subtitle: 'Coastal storm waves',
+                                                            assessment: hazardData.stormSurge.assessment,
+                                                            icon: getHazardIcon('storm'),
+                                                            detailLabel: 'Assessment Result',
+                                                            detailValue: hazardData.stormSurge.result,
+                                                            summary: hazardData.stormSurge.explanation?.[0],
+                                                            explanation: hazardData.stormSurge.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+
+                                                <FloatingPanelHazardCard
+                                                    title="Volcanic Ashfall"
+                                                    subtitle="Volcanic ash deposits"
+                                                    assessment={hazardData.ashfall.assessment}
+                                                    icon={getHazardIcon('ashfall')}
+                                                    summary={hazardData.ashfall.explanation?.[0]}
+                                                    explanation={hazardData.ashfall.explanation?.join(' ')}
+                                                    onClick={() =>
+                                                        setSelectedHazardCard({
+                                                            title: 'Volcanic Ashfall',
+                                                            subtitle: 'Volcanic ash deposits',
+                                                            assessment: hazardData.ashfall.assessment,
+                                                            icon: getHazardIcon('ashfall'),
+                                                            summary: hazardData.ashfall.explanation?.[0],
+                                                            explanation: hazardData.ashfall.explanation?.join(' '),
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isResultsPanelOpen && (
+                            <div className="absolute top-4 right-4 z-[1000]">
+                                <Button
+                                    onPress={() => setIsResultsPanelOpen(true)}
+                                    className="rounded-2xl shadow-xl bg-white/95 text-slate-800 border border-[#eadbc7]"
+                                    startContent={<PanelRightOpen className="w-4 h-4" />}
+                                >
+                                    Show Results
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <Modal
+                    isOpen={isReportIncidentOpen}
+                    onOpenChange={onReportIncidentOpenChange}
+                    size="3xl"
+                    scrollBehavior="inside"
+                    hideCloseButton
+                    classNames={{
+                        base: 'rounded-[32px]',
+                        backdrop: 'bg-slate-900/45 backdrop-blur-sm',
+                    }}
+                >
+                    <ModalContent>
+                        {() => (
+                            <>
+                                <ModalHeader className="px-6 py-5 border-b border-[#efe3d6]">
+                                    <div className="flex items-start justify-between w-full gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#5A3A1A] to-[#9D7C5A] text-white shadow-lg">
+                                                <AlertTriangle className="w-7 h-7" />
+                                            </div>
+
                                             <div>
-                                                <h3 className="text-lg font-semibold text-slate-800">
-                                                    Volcanic Ashfall
-                                                </h3>
-                                                <p className="text-xs text-slate-500">
-                                                    Volcanic ash deposits
+                                                <h2 className="text-3xl font-black text-[#5A3A1A] leading-tight">
+                                                    Report Incident
+                                                </h2>
+                                                <p className="text-[#7B5A3A] text-base mt-1">
+                                                    Submit a new incident report
                                                 </p>
                                             </div>
                                         </div>
-                                        <Chip
-                                            size="sm"
-                                            color={getAssessmentColor(
-                                                hazardData.ashfall.assessment
-                                            )}
-                                            variant="flat"
-                                            classNames={{
-                                                content:
-                                                    'max-w-[150px] truncate',
-                                            }}
-                                            title={
-                                                hazardData.ashfall.assessment
-                                            }
+
+                                        <Button
+                                            isIconOnly
+                                            variant="light"
+                                            className="rounded-xl text-slate-500"
+                                            onPress={onCloseReportIncident}
                                         >
-                                            {hazardData.ashfall.assessment}
-                                        </Chip>
+                                            <svg
+                                                className="w-6 h-6"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            >
+                                                <path d="M18 6L6 18" />
+                                                <path d="M6 6l12 12" />
+                                            </svg>
+                                        </Button>
                                     </div>
-                                </CardHeader>
-                                <CardBody className="pt-0">
-                                    <div className="flex items-center gap-2 p-2 bg-blue-50/50 rounded-lg">
-                                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                        <div className="group relative">
-                                            <span className="text-xs text-blue-700 font-medium cursor-help">
-                                                More Information
-                                            </span>
-                                            <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                                {
-                                                    hazardData.ashfall
-                                                        .explanation[0]
-                                                }
+                                </ModalHeader>
+
+                                <ModalBody className="px-6 py-6 bg-[#f6f1e8]">
+                                    <Questionnaire
+                                        onClose={onCloseReportIncident}
+                                        openSuccessModal={() => {
+                                            onCloseReportIncident();
+                                        }}
+                                    />
+                                </ModalBody>
+                            </>
+                        )}
+                    </ModalContent>
+                </Modal>
+
+                <Modal
+                    isOpen={!!selectedHazardCard}
+                    onOpenChange={(open) => {
+                        if (!open) setSelectedHazardCard(null);
+                    }}
+                    size="2xl"
+                    scrollBehavior="inside"
+                    classNames={{
+                        base: 'rounded-3xl',
+                        backdrop: 'bg-slate-900/50 backdrop-blur-sm',
+                    }}
+                >
+                    <ModalContent>
+                        {(onClose) => (
+                            <>
+                                <ModalHeader className="px-6 pt-6 pb-4">
+                                    {selectedHazardCard && (
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="rounded-2xl bg-[#f8f1e8] border border-[#eadbc7] shrink-0 flex items-center justify-center w-12 h-12">
+                                                {selectedHazardCard.icon}
+                                            </div>
+
+                                            <div className="min-w-0">
+                                                <h3 className="text-xl font-bold text-slate-800 leading-tight">
+                                                    {selectedHazardCard.title}
+                                                </h3>
+                                                <p className="text-sm text-slate-500 mt-1">
+                                                    {selectedHazardCard.subtitle}
+                                                </p>
                                             </div>
                                         </div>
-                                    </div>
-                                </CardBody>
-                            </Card>
-                        </div>
-                    </div>
-                ) : null}
+                                    )}
+                                </ModalHeader>
 
-                {/* Empty State */}
-                {!hazardData && !loading && (
-                    <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 max-w-md mx-auto">
-                        <CardBody className="p-12 text-center">
-                            <div className="text-6xl mb-6">🔍</div>
-                            <h3 className="text-2xl font-bold text-slate-800 mb-3">
-                                Ready for Assessment
-                            </h3>
-                            <p className="text-slate-600 leading-relaxed">
-                                Search for a location above and click
-                                &quot;Assess&quot; to get comprehensive
-                                natural disaster risk analysis for any area in
-                                the Philippines.
-                            </p>
-                        </CardBody>
-                    </Card>
-                )}
+                                <ModalBody className="px-6 pb-2">
+                                    {selectedHazardCard?.detailValue && (
+                                        <div className="rounded-2xl border border-[#efe3d6] bg-[#fcfaf7] px-4 py-4 mb-4">
+                                            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 font-bold mb-2">
+                                                {selectedHazardCard.detailLabel}
+                                            </p>
+                                            <p className="text-base font-semibold text-slate-800 leading-7 break-words">
+                                                {selectedHazardCard.detailValue}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {selectedHazardCard?.explanation && (
+                                        <div className="rounded-2xl border border-[#efe3d6] bg-[#f8f4ee] px-4 py-4">
+                                            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 font-bold mb-2">
+                                                Full Details
+                                            </p>
+                                            <p
+                                                className="text-[15px] text-slate-700 leading-7 break-words"
+                                                dangerouslySetInnerHTML={{
+                                                    __html: selectedHazardCard.explanation || '',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {!selectedHazardCard?.explanation && selectedHazardCard?.summary && (
+                                        <div className="rounded-2xl border border-[#efe3d6] bg-[#f8f4ee] px-4 py-4">
+                                            <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500 font-bold mb-2">
+                                                Full Details
+                                            </p>
+                                            <p
+                                                className="text-[15px] text-slate-700 leading-7 break-words"
+                                                dangerouslySetInnerHTML={{
+                                                    __html: selectedHazardCard.summary || '',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </ModalBody>
+
+                                <ModalFooter className="px-6 pb-6 pt-4 border-t border-[#efe3d6] flex items-center justify-between gap-4">
+                                    {selectedHazardCard && (
+                                        <Chip
+                                            size="md"
+                                            color={getAssessmentColor(selectedHazardCard.assessment)}
+                                            variant="flat"
+                                            classNames={{
+                                                base: 'max-w-full',
+                                                content: 'font-semibold text-[14px] whitespace-normal break-words',
+                                            }}
+                                        >
+                                            {selectedHazardCard.assessment}
+                                        </Chip>
+                                    )}
+
+                                    <Button
+                                        variant="flat"
+                                        onPress={onClose}
+                                        className="rounded-2xl"
+                                    >
+                                        Close
+                                    </Button>
+                                </ModalFooter>
+                            </>
+                        )}
+                    </ModalContent>
+                </Modal>
             </div>
         </div>
     );

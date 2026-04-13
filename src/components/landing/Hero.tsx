@@ -8,10 +8,10 @@ const Hero = ({ session }: { session: Session | null }) => {
         const partnerLogos = [
         { src: '/upm.png', alt: 'UPM' },
         { src: '/upmcph.png', alt: 'UPM-CPH' },
-        { src: '/drrmh.png', alt: 'DRRMH' },
+        { src: '/drrmh.png', alt: 'DRRMH', scale: 1.05 },
         { src: '/dostPhivolcs.png', alt: 'DOST-PHIVOLCS' },
         { src: '/DOST.png', alt: 'DOST' },
-        { src: '/pchrd.png', alt: 'PCHRD' },
+        { src: '/pchrd.png', alt: 'PCHRD', scale: 1.05 },
         ];
 
     return (
@@ -133,17 +133,18 @@ const Hero = ({ session }: { session: Session | null }) => {
                         >
 
                         <Image
-                        src={logo.src}
-                        alt={logo.alt}
-                        width={320}
-                        height={220}
-                        className="
-                            max-h-full max-w-full object-contain
-                            transition-all duration-300 ease-out
-                            group-hover:scale-[1]
-                            group-hover:drop-shadow-md
-                        "
-                        priority
+                            src={logo.src}
+                            alt={logo.alt}
+                            width={320}
+                            height={220}
+                            className="
+                                max-h-full max-w-full object-contain
+                                transition-all duration-300 ease-out
+                                group-hover:scale-[1]
+                                group-hover:drop-shadow-md
+                            "
+                            style={{ transform: `scale(${logo.scale || 1})` }}
+                            priority
                         />
 
                         </div>

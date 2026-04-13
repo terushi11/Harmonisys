@@ -15,13 +15,13 @@ Formatting rules (must follow exactly):
 7) Keep answers short and actionable.
 `.trim();
 
-  const outputTemplate = `
+const outputTemplate = `
 Output template:
 Title
 
-Short answer (1–2 sentences)
+Short answer (1–3 sentences)
 
-Next steps (if needed)
+If instructions are required, provide numbered steps like:
 1) ...
 2) ...
 3) ...
@@ -52,8 +52,11 @@ ${active.routes.join(", ")}
 ${active.faq?.length ? `FAQ topics: ${active.faq.map((f) => f.question).join(" | ")}` : ""}
 `.trim()
     : `
-If the user’s tool is unclear, ask ONE clarifying question (and only one):
-Which module is this about: IRS, Mi Salud, REDAS, Unahon, or HazardHunter?
+If the user's module is unclear or outside scope, respond with exactly:
+
+Sorry, I can only assist with information related to Harmonisys and Disaster Risk Reduction and Management. Could you let me know which module this is about: IRS, Mi Salud, REDAS, Unahon, or HazardHunter?
+
+Do not add anything else.
 `.trim();
 
   return `
@@ -72,7 +75,8 @@ Knowledge base:
 ${toolBlock}
 
 You must answer using ONLY the knowledge base above.
-If the user requests something not covered, ask what screen/page they’re on and what they’re trying to do, then give best-effort guidance without inventing features.
+If the request is outside the knowledge base, respond using the fallback rule above.
+Do not restate your capabilities.
 
 ${outputTemplate}
 `.trim();

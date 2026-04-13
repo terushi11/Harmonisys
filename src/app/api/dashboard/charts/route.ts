@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { UserType } from '@prisma/client';
 
 interface MonthData {
     month: string;
@@ -11,55 +13,184 @@ interface MonthData {
 
 export async function GET() {
     try {
-        // Get monthly trends for the last 12 months
+        const session = await auth();
+
+        if (!session?.user?.email) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Unauthorized',
+                    data: null,
+                },
+                { status: 401 }
+            );
+        }
+
+        const currentUser = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+            },
+        });
+
+        if (!currentUser) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'User not found',
+                    data: null,
+                },
+                { status: 404 }
+            );
+        }
+
+        const isAdmin = currentUser.role === UserType.ADMIN;
+
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-        // Monthly incidents
-        const monthlyIncidents = await prisma.incident.groupBy({
-            by: ['createdAt'],
-            _count: {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const userAliases = [
+            currentUser.name?.trim(),
+            currentUser.email?.trim(),
+        ].filter(Boolean) as string[];
+
+        const incidentWhere = isAdmin
+            ? {
+                  createdAt: {
+                      gte: twelveMonthsAgo,
+                  },
+              }
+            : {
+                  AND: [
+                      {
+                          createdAt: {
+                              gte: twelveMonthsAgo,
+                          },
+                      },
+                      {
+                          OR: userAliases.map((alias) => ({
+                              reporter: {
+                                  equals: alias,
+                                  mode: 'insensitive' as const,
+                              },
+                          })),
+                      },
+                  ],
+              };
+
+        const incidentRecentWhere = isAdmin
+            ? {
+                  createdAt: {
+                      gte: sevenDaysAgo,
+                  },
+              }
+            : {
+                  AND: [
+                      {
+                          createdAt: {
+                              gte: sevenDaysAgo,
+                          },
+                      },
+                      {
+                          OR: userAliases.map((alias) => ({
+                              reporter: {
+                                  equals: alias,
+                                  mode: 'insensitive' as const,
+                              },
+                          })),
+                      },
+                  ],
+              };
+
+        const unahonWhere = isAdmin
+            ? {
+                  date: {
+                      gte: twelveMonthsAgo,
+                  },
+              }
+            : {
+                  userId: currentUser.id,
+                  date: {
+                      gte: twelveMonthsAgo,
+                  },
+              };
+
+        const unahonRecentWhere = isAdmin
+            ? {
+                  date: {
+                      gte: sevenDaysAgo,
+                  },
+              }
+            : {
+                  userId: currentUser.id,
+                  date: {
+                      gte: sevenDaysAgo,
+                  },
+              };
+
+        const submissionWhere = isAdmin
+            ? {
+                  createdAt: {
+                      gte: twelveMonthsAgo,
+                  },
+              }
+            : ({
+                  userId: currentUser.id,
+                  createdAt: {
+                      gte: twelveMonthsAgo,
+                  },
+              } as any);
+
+        const submissionRecentWhere = isAdmin
+            ? {
+                  createdAt: {
+                      gte: sevenDaysAgo,
+                  },
+              }
+            : ({
+                  userId: currentUser.id,
+                  createdAt: {
+                      gte: sevenDaysAgo,
+                  },
+              } as any);
+
+        // Monthly raw records
+        const monthlyIncidents = await prisma.incident.findMany({
+            where: incidentWhere,
+            select: {
                 createdAt: true,
-            },
-            where: {
-                createdAt: {
-                    gte: twelveMonthsAgo,
-                },
             },
         });
 
-        // Monthly Unahon assessments
-        const monthlyUnahon = await prisma.unahon.groupBy({
-            by: ['date'],
-            _count: {
+        const monthlyUnahon = await prisma.unahon.findMany({
+            where: unahonWhere,
+            select: {
                 date: true,
             },
-            where: {
-                date: {
-                    gte: twelveMonthsAgo,
-                },
-            },
         });
 
-        // Monthly questionnaire submissions
-        const monthlySubmissions = await prisma.submission.groupBy({
-            by: ['createdAt'],
-            _count: {
-                createdAt: true,
-            },
-            where: {
-                createdAt: {
-                    gte: twelveMonthsAgo,
+        const monthlySubmissions = await prisma.submission
+            .findMany({
+                where: submissionWhere,
+                select: {
+                    createdAt: true,
                 },
-            },
-        });
+            } as any)
+            .catch(() => []);
 
-        // Process monthly data into chart format
+        // Build last 12 month slots
         const months: MonthData[] = [];
         const currentDate = new Date(twelveMonthsAgo);
 
         for (let i = 0; i < 12; i++) {
-            const monthKey = currentDate.toISOString().slice(0, 7); // YYYY-MM format
+            const monthKey = currentDate.toISOString().slice(0, 7);
+
             months.push({
                 month: monthKey,
                 label: currentDate.toLocaleDateString('en-US', {
@@ -70,72 +201,107 @@ export async function GET() {
                 unahon: 0,
                 submissions: 0,
             });
+
             currentDate.setMonth(currentDate.getMonth() + 1);
         }
 
-        // Fill in actual data
+        // Fill monthly incident counts
         monthlyIncidents.forEach((item) => {
             const monthKey = item.createdAt.toISOString().slice(0, 7);
             const monthIndex = months.findIndex((m) => m.month === monthKey);
+
             if (monthIndex !== -1) {
-                months[monthIndex].incidents = item._count.createdAt;
+                months[monthIndex].incidents += 1;
             }
         });
 
+        // Fill monthly unahon counts
         monthlyUnahon.forEach((item) => {
             const monthKey = item.date.toISOString().slice(0, 7);
             const monthIndex = months.findIndex((m) => m.month === monthKey);
+
             if (monthIndex !== -1) {
-                months[monthIndex].unahon = item._count.date;
+                months[monthIndex].unahon += 1;
             }
         });
 
-        monthlySubmissions.forEach((item) => {
+        // Fill monthly submission counts
+        monthlySubmissions.forEach((item: { createdAt: Date }) => {
             const monthKey = item.createdAt.toISOString().slice(0, 7);
             const monthIndex = months.findIndex((m) => m.month === monthKey);
+
             if (monthIndex !== -1) {
-                months[monthIndex].submissions = item._count.createdAt;
+                months[monthIndex].submissions += 1;
             }
         });
 
-        // Get severity distribution
+        // Distributions
         const severityDistribution = await prisma.incident.groupBy({
             by: ['severity'],
             _count: {
                 severity: true,
             },
+            where: isAdmin
+                ? undefined
+                : {
+                      OR: userAliases.map((alias) => ({
+                          reporter: {
+                              equals: alias,
+                              mode: 'insensitive' as const,
+                          },
+                      })),
+                  },
         });
 
-        // Get category distribution
         const categoryDistribution = await prisma.incident.groupBy({
             by: ['category'],
             _count: {
                 category: true,
             },
+            where: isAdmin
+                ? undefined
+                : {
+                      OR: userAliases.map((alias) => ({
+                          reporter: {
+                              equals: alias,
+                              mode: 'insensitive' as const,
+                          },
+                      })),
+                  },
         });
 
-        // Get assessment type distribution
         const assessmentTypeDistribution = await prisma.unahon.groupBy({
             by: ['assessmentType'],
             _count: {
                 assessmentType: true,
             },
+            where: isAdmin ? undefined : { userId: currentUser.id },
         });
 
-        // Get user role distribution
-        const userRoleDistribution = await prisma.user.groupBy({
-            by: ['role'],
-            _count: {
-                role: true,
-            },
-        });
+        const userRoleDistribution = isAdmin
+            ? await prisma.user.groupBy({
+                  by: ['role'],
+                  _count: {
+                      role: true,
+                  },
+              })
+            : [];
 
-        // Get top locations for incidents
         const topLocations = await prisma.incident.groupBy({
             by: ['location'],
             _count: {
                 location: true,
             },
+            where: isAdmin
+                ? undefined
+                : {
+                      OR: userAliases.map((alias) => ({
+                          reporter: {
+                              equals: alias,
+                              mode: 'insensitive' as const,
+                          },
+                      })),
+                  },
             orderBy: {
                 _count: {
                     location: 'desc',
@@ -144,16 +310,9 @@ export async function GET() {
             take: 10,
         });
 
-        // Get recent activity timeline (last 7 days)
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
+        // Recent activity timeline (last 7 days)
         const recentIncidents = await prisma.incident.findMany({
-            where: {
-                createdAt: {
-                    gte: sevenDaysAgo,
-                },
-            },
+            where: incidentRecentWhere,
             select: {
                 id: true,
                 location: true,
@@ -161,6 +320,7 @@ export async function GET() {
                 severity: true,
                 createdAt: true,
                 summary: true,
+                reporter: true,
             },
             orderBy: {
                 createdAt: 'desc',
@@ -168,11 +328,7 @@ export async function GET() {
         });
 
         const recentUnahon = await prisma.unahon.findMany({
-            where: {
-                date: {
-                    gte: sevenDaysAgo,
-                },
-            },
+            where: unahonRecentWhere,
             select: {
                 id: true,
                 client: true,
@@ -189,24 +345,21 @@ export async function GET() {
             },
         });
 
-        const recentSubmissions = await prisma.submission.findMany({
-            where: {
-                createdAt: {
-                    gte: sevenDaysAgo,
+        const recentSubmissions = await prisma.submission
+            .findMany({
+                where: submissionRecentWhere,
+                select: {
+                    id: true,
+                    name: true,
+                    team: true,
+                    createdAt: true,
                 },
-            },
-            select: {
-                id: true,
-                name: true,
-                team: true,
-                createdAt: true,
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+                orderBy: {
+                    createdAt: 'desc',
+                },
+            } as any)
+            .catch(() => []);
 
-        // Combine recent activities
         const recentActivities = [
             ...recentIncidents.map((incident) => ({
                 id: incident.id,
@@ -225,7 +378,7 @@ export async function GET() {
                 timestamp: unahon.date,
                 tool: 'Unahon',
             })),
-            ...recentSubmissions.map((submission) => ({
+            ...recentSubmissions.map((submission: any) => ({
                 id: submission.id,
                 type: 'questionnaire',
                 title: `Questionnaire submitted by ${submission.name}`,
@@ -297,6 +450,7 @@ export async function GET() {
         });
     } catch (error) {
         console.error('Error fetching dashboard charts data:', error);
+
         return NextResponse.json(
             {
                 success: false,

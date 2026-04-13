@@ -25,8 +25,6 @@ import {
     MapPin,
     ShieldCheck,
     Clock,
-    TrendingUp,
-    TrendingDown,
     PieChart,
     Users,
     Lightbulb,
@@ -38,38 +36,55 @@ import type { DashboardStats, DashboardChartsData } from '@/types';
 import DashboardCharts from './DashboardCharts';
 import Image from 'next/image';
 
+const getInitials = (name?: string | null) => {
+    if (!name) return 'U';
+
+    return name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('');
+};
+
 interface MetricCardProps {
     title: string;
     value: string | number;
-    change: string;
-    trend: 'up' | 'down' | 'neutral';
+    subtitle?: string;
     icon: React.ReactNode;
     color: string;
+    cardBg: string;
+    cardBorder: string;
+    subtitleBg: string;
+    subtitleText: string;
     loading?: boolean;
-
     href?: string;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
     title,
     value,
-    change,
-    trend,
+    subtitle,
     icon,
     color,
+    cardBg,
+    cardBorder,
+    subtitleBg,
+    subtitleText,
     loading = false,
     href,
 }) => {
     const router = useRouter();
+
     if (loading) {
         return (
-            <Card className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30">
+            <Card className="rounded-[28px] bg-white/80 backdrop-blur-xl shadow-xl border border-white/30">
                 <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                         <div className="space-y-3">
                             <Skeleton className="w-24 h-4 rounded-lg" />
                             <Skeleton className="w-20 h-10 rounded-lg" />
-                            <Skeleton className="w-16 h-3 rounded-lg" />
+                            <Skeleton className="w-28 h-8 rounded-full" />
                         </div>
                         <Skeleton className="w-14 h-14 rounded-2xl" />
                     </div>
@@ -79,53 +94,53 @@ const MetricCard: React.FC<MetricCardProps> = ({
     }
 
     return (
-    <Card
-    className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30 hover:shadow-2xl transition-all duration-500 hover:-translate-y-1 group cursor-pointer"
-    isPressable={!!href}
-    onPress={() => {
-        if (href) router.push(href);
-    }}
->
+        <Card
+            className={`
+                rounded-[28px]
+                shadow-lg hover:shadow-xl
+                transition-all duration-300
+                hover:-translate-y-1
+                group cursor-pointer overflow-hidden
+                ring-1 ring-white/80
+                backdrop-blur-sm
+                ${cardBg} ${cardBorder}
+            `}
+            isPressable={!!href}
+            onPress={() => {
+                if (href) router.push(href);
+            }}
+        >
             <CardBody className="p-6 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute inset-0 bg-white/[0.22]" />
+                <div className="absolute -top-10 -right-10 w-28 h-28 rounded-full bg-white/10 blur-2xl" />
 
-                <div className="flex items-center justify-between relative z-10">
-                    <div className="space-y-3">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="flex items-start justify-between relative z-10 gap-4">
+                    <div className="space-y-4 min-w-0">
+                        <p className="text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.18em] leading-tight">
                             {title}
                         </p>
-                        <p className="text-4xl font-black text-slate-900 group-hover:scale-[1.02] transition-transform duration-300">
+
+                        <p className="text-4xl font-black text-slate-900 leading-none group-hover:scale-[1.02] transition-transform duration-300">
                             {typeof value === 'number'
                                 ? value.toLocaleString()
                                 : value}
                         </p>
-                        <div className="flex items-center gap-2">
-                            {trend === 'up' ? (
-                                <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 rounded-full">
-                                    <TrendingUp className="w-3 h-3 text-emerald-700" />
-                                    <span className="text-xs font-bold text-emerald-800">
-                                        {change}
-                                    </span>
-                                </div>
-                            ) : trend === 'down' ? (
-                                <div className="flex items-center gap-1 px-2 py-1 bg-red-100 rounded-full">
-                                    <TrendingDown className="w-3 h-3 text-red-700" />
-                                    <span className="text-xs font-bold text-red-800">
-                                        {change}
-                                    </span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 rounded-full">
-                                    <span className="text-xs font-bold text-slate-700">
-                                        {change}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+
+                        {subtitle ? (
+                            <div
+                                className={`inline-flex max-w-full items-center rounded-full px-3.5 py-1.5 ${subtitleBg}`}
+                            >
+                                <span
+                                    className={`text-[13px] font-semibold leading-tight whitespace-nowrap ${subtitleText}`}
+                                >
+                                    {subtitle}
+                                </span>
+                            </div>
+                        ) : null}
                     </div>
 
                     <div
-                        className={`p-4 rounded-2xl ${color} shadow-xl group-hover:scale-105 transition-all duration-500`}
+                        className={`shrink-0 p-4 rounded-3xl ${color} shadow-lg group-hover:scale-105 transition-all duration-300`}
                     >
                         {icon}
                     </div>
@@ -161,16 +176,22 @@ const ToolCard: React.FC<ToolCardProps> = ({
 
     if (loading) {
         return (
-            <Card className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30">
+            <Card className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30 rounded-[28px]">
                 <CardBody className="p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4 mb-5">
                         <Skeleton className="w-14 h-14 rounded-2xl" />
-                        <Skeleton className="w-20 h-6 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="w-28 h-6 rounded-lg" />
+                            <Skeleton className="w-3/4 h-4 rounded-lg" />
+                        </div>
                     </div>
-                    <Skeleton className="w-full h-6 rounded-lg mb-3" />
+
+                    <Skeleton className="w-full h-4 rounded-lg mb-2" />
                     <Skeleton className="w-4/5 h-4 rounded-lg mb-6" />
+                    <Divider className="mb-4" />
+
                     <div className="flex items-center justify-between">
-                        <Skeleton className="w-20 h-8 rounded-lg" />
+                        <Skeleton className="w-16 h-8 rounded-lg" />
                         <Skeleton className="w-24 h-4 rounded-lg" />
                     </div>
                 </CardBody>
@@ -180,7 +201,7 @@ const ToolCard: React.FC<ToolCardProps> = ({
 
     return (
         <Card
-            className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30 hover:shadow-2xl transition-all duration-500 cursor-pointer group hover:-translate-y-1"
+            className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/30 rounded-[28px] hover:shadow-2xl transition-all duration-300 cursor-pointer group hover:-translate-y-1"
             isPressable
             onPress={() => router.push(href)}
         >
@@ -188,34 +209,29 @@ const ToolCard: React.FC<ToolCardProps> = ({
                 <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-white/0 to-white/0 group-hover:from-white/10 group-hover:via-white/5 group-hover:to-white/10 transition-all duration-500" />
 
                 <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div
-                                className={`p-4 rounded-2xl ${color} shadow-xl group-hover:scale-105 transition-all duration-500`}
-                            >
-                                {icon}
-                            </div>
+                    {/* Top row: icon + title */}
+                    <div className="flex items-center gap-4 mb-5">
+                        <div
+                            className={`p-4 rounded-2xl ${color} shadow-lg group-hover:scale-105 transition-all duration-300`}
+                        >
+                            {icon}
+                        </div>
 
-                            <div className="hidden sm:flex flex-col">
-                                <span className="text-xs font-semibold text-slate-500">
-                                    Tool
-                                </span>
-                                <span className="text-sm font-bold text-slate-900">
-                                    {title}
-                                </span>
-                            </div>
+                        <div className="min-w-0">
+                            <h3 className="text-[28px] font-black text-slate-900 leading-none truncate">
+                                {title}
+                            </h3>
                         </div>
                     </div>
 
-                    <h3 className="text-xl font-black text-slate-900 mb-2">
-                        {title}
-                    </h3>
+                    {/* Description */}
                     <p className="text-slate-600 text-sm mb-6 leading-relaxed">
                         {description}
                     </p>
 
                     <Divider className="mb-4" />
 
+                    {/* Stats */}
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
                             <span className="text-2xl font-black text-slate-900">
@@ -245,6 +261,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     );
     const [loading, setLoading] = useState(true);
     const [selectedTab, setSelectedTab] = useState('overview');
+    const [avatarError, setAvatarError] = useState(false);
 
     // Role-based UI
     const role = session?.user?.role as UserType | undefined;
@@ -308,19 +325,6 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             status: 'operational' as const,
         },
         {
-            title: 'Mi Salud',
-            description:
-                'Mental and physical health monitoring for disaster responders',
-            icon: <Heart className="w-7 h-7 text-white" />,
-            stats: stats?.overview.totalQuestionnaires.toString() || '0',
-            trend: stats?.recent.recentSubmissions
-                ? `+${stats.recent.recentSubmissions} this month`
-                : '0 this month',
-            color: toolTheme.misalud,
-            href: '/misalud',
-            status: 'operational' as const,
-        },
-        {
             title: 'REDAS',
             description:
                 'Rapid Earthquake Damage Assessment System training programs',
@@ -329,17 +333,6 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             trend: 'Active training programs',
             color: toolTheme.redas,
             href: '/redas',
-            status: 'operational' as const,
-        },
-        {
-            title: 'HazardHunter',
-            description:
-                'Natural hazard assessment and risk analysis for Philippine locations',
-            icon: <MapPin className="w-7 h-7 text-white" />,
-            stats: 'Active',
-            trend: 'Real-time monitoring',
-            color: toolTheme.hazardhunter,
-            href: '/hazardhunter',
             status: 'operational' as const,
         },
         {
@@ -353,6 +346,30 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                 : '0 this month',
             color: toolTheme.unahon,
             href: '/unahon',
+            status: 'operational' as const,
+        },
+        {
+            title: 'Mi Salud',
+            description:
+                'Mental and physical health monitoring for disaster responders',
+            icon: <Heart className="w-7 h-7 text-white" />,
+            stats: stats?.overview.totalQuestionnaires.toString() || '0',
+            trend: stats?.recent.recentSubmissions
+                ? `+${stats.recent.recentSubmissions} this month`
+                : '0 this month',
+            color: toolTheme.misalud,
+            href: '/misalud',
+            status: 'operational' as const,
+        },
+        {
+            title: 'HazardHunter',
+            description:
+                'Natural hazard assessment and risk analysis for Philippine locations',
+            icon: <MapPin className="w-7 h-7 text-white" />,
+            stats: 'Active',
+            trend: 'Real-time monitoring',
+            color: toolTheme.hazardhunter,
+            href: '/hazardhunter',
             status: 'operational' as const,
         },
     ];
@@ -443,142 +460,153 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             return false;
         }) || [];
 
-    // Responder Metrics (includes Mi Salud)
-    const responderMetrics: MetricCardProps[] = [
-        {
-            title: 'My Incident Reports',
-            value: stats?.overview.totalIncidents || 0,
-            change: stats?.recent.recentIncidents
-                ? `+${stats.recent.recentIncidents} this month`
-                : '0 this month',
-            trend: stats?.recent.recentIncidents ? 'up' : 'neutral',
-            icon: <AlertTriangle className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-red-500 via-red-600 to-orange-600',
-        },
-        {
-            title: 'My Health Assessments',
-            value: stats?.overview.totalQuestionnaires || 0,
-            change: stats?.recent.recentSubmissions
-                ? `+${stats.recent.recentSubmissions} this month`
-                : '0 this month',
-            trend: stats?.recent.recentSubmissions ? 'up' : 'neutral',
-            icon: <Heart className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600',
-        },
-        {
-            title: 'My Unahon Screenings',
-            value: stats?.overview.totalUnahonAssessments || 0,
-            change: stats?.recent.recentUnahonAssessments
-                ? `+${stats.recent.recentUnahonAssessments} this month`
-                : '0 this month',
-            trend: stats?.recent.recentUnahonAssessments ? 'up' : 'neutral',
-            icon: <ShieldCheck className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600',
-        },
-        {
-            title: 'My Recent Activity',
-            value: myRecentActivities.length
-                ? formatTimeAgo(myRecentActivities[0].timestamp)
-                : '—',
-            change: 'Latest action',
-            trend: 'neutral',
-            icon: <Clock className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800',
-        },
-    ];
-
-    // ✅ Standard Metrics: ONLY 3 cards (Incident, Unahon, Recent Activity)
+    
+        const responderMetrics: MetricCardProps[] = [
+    {
+        title: 'Total Incidents',
+        value: stats?.overview.totalIncidents || 0,
+        subtitle: 'Submitted reports',
+        icon: <AlertTriangle className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]',
+        cardBg: 'bg-gradient-to-br from-[#B0122B]/8 via-[#B0122B]/4 to-white',
+        cardBorder: 'border border-[#B0122B]/20',
+        subtitleBg: 'bg-[#B0122B]/8 border border-[#B0122B]/18',
+        subtitleText: 'text-[#8E1023]',
+    },
+    {
+        title: 'Health Assessments',
+        value: stats?.overview.totalQuestionnaires || 0,
+        subtitle: 'Completed forms',
+        icon: <Heart className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]',
+        cardBg: 'bg-gradient-to-br from-[#7A0C1E]/8 via-[#7A0C1E]/4 to-white',
+        cardBorder: 'border border-[#7A0C1E]/20',
+        subtitleBg: 'bg-[#7A0C1E]/8 border border-[#7A0C1E]/18',
+        subtitleText: 'text-[#66101E]',
+    },
+    {
+        title: 'Unahon Screenings',
+        value: stats?.overview.totalUnahonAssessments || 0,
+        subtitle: 'Mental screening',
+        icon: <ShieldCheck className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
+        cardBg: 'bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white',
+        cardBorder: 'border border-[#6B0F25]/20',
+        subtitleBg: 'bg-[#6B0F25]/8 border border-[#6B0F25]/18',
+        subtitleText: 'text-[#5A1023]',
+    },
+    {
+        title: 'Recent Activity',
+        value: myRecentActivities.length
+            ? formatTimeAgo(myRecentActivities[0].timestamp)
+            : '—',
+        subtitle: 'Latest action',
+        icon: <Clock className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#5B0A0A] via-[#741010] to-[#8E1717]',
+        cardBg: 'bg-gradient-to-br from-[#5B0A0A]/8 via-[#5B0A0A]/4 to-white',
+        cardBorder: 'border border-[#5B0A0A]/20',
+        subtitleBg: 'bg-[#5B0A0A]/8 border border-[#5B0A0A]/18',
+        subtitleText: 'text-[#5B0A0A]',
+    },
+];
+    
     const standardMetrics: MetricCardProps[] = [
-        {
-            title: 'My Incident Reports',
-            value: stats?.overview.totalIncidents || 0,
-            change: stats?.recent.recentIncidents
-                ? `+${stats.recent.recentIncidents} this month`
-                : '0 this month',
-            trend: stats?.recent.recentIncidents ? 'up' : 'neutral',
-            icon: <AlertTriangle className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-red-500 via-red-600 to-orange-600',
-        },
-        {
-            title: 'My Unahon Screenings',
-            value: stats?.overview.totalUnahonAssessments || 0,
-            change: stats?.recent.recentUnahonAssessments
-                ? `+${stats.recent.recentUnahonAssessments} this month`
-                : '0 this month',
-            trend: stats?.recent.recentUnahonAssessments ? 'up' : 'neutral',
-            icon: <ShieldCheck className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600',
-        },
-        {
-            title: 'My Recent Activity',
-            value: myRecentActivities.length
-                ? formatTimeAgo(myRecentActivities[0].timestamp)
-                : '—',
-            change: 'Latest action',
-            trend: 'neutral',
-            icon: <Clock className="w-7 h-7 text-white" />,
-            color: 'bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800',
-        },
-    ];
+    {
+        title: 'Total Incidents',
+        value: stats?.overview.totalIncidents || 0,
+        subtitle: 'Submitted reports',
+        icon: <AlertTriangle className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]',
+        cardBg: 'bg-gradient-to-br from-[#B0122B]/8 via-[#B0122B]/4 to-white',
+        cardBorder: 'border border-[#B0122B]/20',
+        subtitleBg: 'bg-[#B0122B]/8 border border-[#B0122B]/18',
+        subtitleText: 'text-[#8E1023]',
+    },
+    {
+        title: 'Unahon Screenings',
+        value: stats?.overview.totalUnahonAssessments || 0,
+        subtitle: 'Mental screening',
+        icon: <ShieldCheck className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
+        cardBg: 'bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white',
+        cardBorder: 'border border-[#6B0F25]/20',
+        subtitleBg: 'bg-[#6B0F25]/8 border border-[#6B0F25]/18',
+        subtitleText: 'text-[#5A1023]',
+    },
+    {
+        title: 'Recent Activity',
+        value: myRecentActivities.length
+            ? formatTimeAgo(myRecentActivities[0].timestamp)
+            : '—',
+        subtitle: 'Latest action',
+        icon: <Clock className="w-7 h-7 text-white" />,
+        color: 'bg-gradient-to-br from-[#5B0A0A] via-[#741010] to-[#8E1717]',
+        cardBg: 'bg-gradient-to-br from-[#5B0A0A]/8 via-[#5B0A0A]/4 to-white',
+        cardBorder: 'border border-[#5B0A0A]/20',
+        subtitleBg: 'bg-[#5B0A0A]/8 border border-[#5B0A0A]/18',
+        subtitleText: 'text-[#5B0A0A]',
+    },
+];
 
-    // Admin metrics (unchanged)
-    const adminMetrics = (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <MetricCard
-                title="Total Users"
-                value={stats?.overview.totalUsers || 0}
-                change="Active users"
-                trend="neutral"
-                icon={<Users className="w-7 h-7 text-white" />}
-                color="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600"
-                loading={loading}
-                href="/users"
-            />
+   const adminMetrics = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+            title="Total Users"
+            value={stats?.overview.totalUsers || 0}
+            subtitle="Active users"
+            icon={<Users className="w-7 h-7 text-white" />}
+            color="bg-gradient-to-br from-[#8B1538] via-[#A61B45] to-[#C12752]"
+            cardBg="bg-gradient-to-br from-[#8B1538]/8 via-[#8B1538]/4 to-white"
+            cardBorder="border border-[#8B1538]/20"
+            subtitleBg="bg-[#8B1538]/8 border border-[#8B1538]/18"
+            subtitleText="text-[#6B0F25]"
+            loading={loading}
+            href="/users"
+        />
 
-            <MetricCard
-                title="Total Incidents"
-                value={stats?.overview.totalIncidents || 0}
-                change={
-                    stats?.recent.recentIncidents
-                        ? `+${stats.recent.recentIncidents} this month`
-                        : '0 this month'
-                }
-                trend={stats?.recent.recentIncidents ? 'up' : 'neutral'}
-                icon={<AlertTriangle className="w-7 h-7 text-white" />}
-                color="bg-gradient-to-br from-red-500 via-red-600 to-orange-600"
-                loading={loading}
-            />
+        <MetricCard
+            title="Total Incidents"
+            value={stats?.overview.totalIncidents || 0}
+            subtitle="Recorded incidents"
+            icon={<AlertTriangle className="w-7 h-7 text-white" />}
+            color="bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]"
+            cardBg="bg-gradient-to-br from-[#B0122B]/8 via-[#B0122B]/4 to-white"
+            cardBorder="border border-[#B0122B]/20"
+            subtitleBg="bg-[#B0122B]/8 border border-[#B0122B]/18"
+            subtitleText="text-[#8E1023]"
+            loading={loading}
+            href="/irs/incidents/manage"
+        />
 
-            <MetricCard
-                title="Health Assessments"
-                value={stats?.overview.totalQuestionnaires || 0}
-                change={
-                    stats?.recent.recentSubmissions
-                        ? `+${stats.recent.recentSubmissions} this month`
-                        : '0 this month'
-                }
-                trend={stats?.recent.recentSubmissions ? 'up' : 'neutral'}
-                icon={<Heart className="w-7 h-7 text-white" />}
-                color="bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600"
-                loading={loading}
-            />
+        <MetricCard
+            title="Mi Salud Records"
+            value={stats?.overview.totalQuestionnaires || 0}
+            subtitle="Health assessments"
+            icon={<Heart className="w-7 h-7 text-white" />}
+            color="bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]"
+            cardBg="bg-gradient-to-br from-[#7A0C1E]/8 via-[#7A0C1E]/4 to-white"
+            cardBorder="border border-[#7A0C1E]/20"
+            subtitleBg="bg-[#7A0C1E]/8 border border-[#7A0C1E]/18"
+            subtitleText="text-[#66101E]"
+            loading={loading}
+            href="/misalud/manage"
+        />
 
-            <MetricCard
-                title="Mental Health Screenings"
-                value={stats?.overview.totalUnahonAssessments || 0}
-                change={
-                    stats?.recent.recentUnahonAssessments
-                        ? `+${stats.recent.recentUnahonAssessments} this month`
-                        : '0 this month'
-                }
-                trend={stats?.recent.recentUnahonAssessments ? 'up' : 'neutral'}
-                icon={<ShieldCheck className="w-7 h-7 text-white" />}
-                color="bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600"
-                loading={loading}
-                href="/unahon/manage"
-            />
-        </div>
-    );
+        <MetricCard
+            title="Unahon records"
+            value={stats?.overview.totalUnahonAssessments || 0}
+            subtitle="Submitted assessments"
+            icon={<ShieldCheck className="w-7 h-7 text-white" />}
+            color="bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]"
+            cardBg="bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white"
+            cardBorder="border border-[#6B0F25]/20"
+            subtitleBg="bg-[#6B0F25]/8 border border-[#6B0F25]/18"
+            subtitleText="text-[#5A1023]"
+            loading={loading}
+            href="/unahon/manage"
+        />
+    </div>
+);
 
     const activitiesToShow =
         (isPersonalDashboard ? myRecentActivities : stats?.recentActivities) ||
@@ -602,29 +630,66 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
             <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
                 {/* Header */}
-                <Card className="mb-8 bg-white shadow-xl border border-slate-200 overflow-hidden">
-                    <CardBody className="p-8 relative">
+                <Card className="mb-8 rounded-[28px] overflow-hidden border border-white/10 shadow-2xl bg-gradient-to-r from-[#5B0A0A] via-[#7A1111] to-[#A11B1B]">
+                    <CardBody className="px-8 py-7 relative overflow-hidden">
+                        <div
+                            className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
+                            style={{
+                                backgroundImage: `
+                                    repeating-radial-gradient(
+                                        circle at 0 0,
+                                        rgba(255,255,255,0.15),
+                                        rgba(255,255,255,0.15) 1px,
+                                        transparent 1px,
+                                        transparent 2px
+                                    )
+                                `,
+                                backgroundSize: '4px 4px',
+                            }}
+                        />
+                        <div
+                            className="pointer-events-none absolute inset-0 opacity-[0.06]"
+                            style={{
+                                backgroundImage: `
+                                    linear-gradient(
+                                        135deg,
+                                        rgba(255,255,255,0.25),
+                                        transparent 60%
+                                    )
+                                `,
+                            }}
+                        />
                         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 relative z-10">
                             <div className="flex-1">
-                                <div className="flex items-center gap-5 mb-2">
-                                    <div className="relative">
-                                        <Image
-                                            src={session?.user?.image || '/placeholder.svg'}
-                                            alt={session?.user?.name || 'User avatar'}
-                                            width={64}
-                                            height={64}
-                                            className="rounded-full object-cover border-4 border-rose-100 shadow-md"
-                                        />
-                                        <div className="absolute bottom-1 right-1 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
+                                <div className="flex items-center gap-4 lg:gap-5">
+                                    <div className="relative shrink-0">
+                                        <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-lg backdrop-blur-sm">
+                                            {!avatarError && session?.user?.image ? (
+                                                <Image
+                                                    src={session.user.image}
+                                                    alt={session?.user?.name || 'User avatar'}
+                                                    fill
+                                                    sizes="64px"
+                                                    className="object-cover"
+                                                    onError={() => setAvatarError(true)}
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/20 to-white/5 text-lg font-extrabold text-white">
+                                                    {getInitials(session?.user?.name)}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500 shadow" />
                                     </div>
 
-                                    <div className="flex flex-col">
-                                        <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight">
-                                            {getGreeting()}, {session?.user?.name || 'User'}!
+                                    <div className="min-w-0">
+                                        <h1 className="text-3xl lg:text-5xl font-black text-white leading-tight tracking-[-0.02em]">
+                                            {getGreeting()}, {(session?.user?.name || 'User').split(' ')[0]}!
                                         </h1>
 
-                                        <p className="text-slate-600 text-base mt-2">
-                                            Welcome to your DRRM Command Center
+                                        <p className="text-white/85 text-lg mt-1">
+                                            Welcome to your DRRM Dashboard
                                         </p>
                                     </div>
                                 </div>
@@ -632,9 +697,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
                             <div className="flex flex-col sm:flex-row gap-4">
                                 <Button
-                                    className="font-bold bg-gradient-to-r from-[#7A0C1E] to-[#B91C1C] hover:from-[#6B0F25] hover:to-[#991B1B] text-white min-w-[200px] h-14 shadow-2xl hover:shadow-3xl transition-all duration-500 transform hover:-translate-y-1 hover:scale-105"
+                                    className="font-bold bg-white text-[#7A1111] hover:bg-rose-50 min-w-[180px] h-12 px-6 rounded-[18px] shadow-lg transition-all duration-300 hover:-translate-y-0.5"
                                     size="lg"
-                                    startContent={<Lightbulb className="w-5 h-5" />}
+                                    startContent={<Lightbulb className="w-5 h-5 text-[#7A0C1E]" />}
                                     onPress={onOpen}
                                 >
                                     Quick Actions
@@ -654,10 +719,13 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                                 key={idx}
                                 title={m.title}
                                 value={m.value}
-                                change={m.change}
-                                trend={m.trend}
+                                subtitle={m.subtitle}
                                 icon={m.icon}
                                 color={m.color}
+                                cardBg={m.cardBg}
+                                cardBorder={m.cardBorder}
+                                subtitleBg={m.subtitleBg}
+                                subtitleText={m.subtitleText}
                                 loading={loading}
                             />
                         ))}
@@ -706,48 +774,66 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                                     </div>
                                 </div>
 
-                                <Card className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30">
-                                    <CardHeader className="pb-4">
+                                <Card className="bg-white/80 backdrop-blur-xl shadow-2xl border border-rose-100/80 rounded-[28px] overflow-hidden">
+                                    <CardHeader className="pb-4 pt-6 px-6">
                                         <div className="flex items-center gap-3 w-full">
                                             <h3 className="text-2xl font-black text-slate-900">
                                                 {isPersonalDashboard
                                                     ? 'My Recent Activities'
                                                     : 'Recent Activities'}
                                             </h3>
-                                            <div className="flex-1 h-px bg-gradient-to-r from-rose-200 to-transparent" />
+                                            <div className="flex-1 h-px bg-gradient-to-r from-[#B0122B]/25 to-transparent" />
                                         </div>
                                     </CardHeader>
 
-                                    <CardBody>
-                                        <div className="space-y-3">
+                                    <CardBody className="px-6 pb-6">
+                                        <div className="space-y-4">
                                             {activitiesToShow.length ? (
                                                 activitiesToShow.slice(0, 5).map((activity, index) => (
                                                     <div
                                                         key={index}
-                                                        className="flex items-center gap-4 p-4 bg-white/70 rounded-xl border border-rose-100 hover:border-rose-200 hover:shadow-md transition-all"
+                                                        className="
+                                                            group relative flex items-center gap-4
+                                                            rounded-2xl border border-rose-200/70
+                                                            bg-gradient-to-r from-[#B0122B]/[0.04] via-white to-white
+                                                            px-5 py-5
+                                                            transition-all duration-300
+                                                            hover:-translate-y-0.5
+                                                            hover:shadow-lg
+                                                            hover:border-[#B0122B]/25
+                                                        "
                                                     >
-                                                        <div className="p-3 bg-gradient-to-br from-rose-100 to-red-100 rounded-xl">
-                                                            <Clock className="w-5 h-5 text-rose-700" />
+                                                        <div className="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-gradient-to-b from-[#7A0C1E] to-[#B91C1C] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                                                        <div className="shrink-0 p-3 rounded-2xl bg-gradient-to-br from-[#FBE4E8] to-[#F6D4DA] shadow-sm border border-rose-100">
+                                                            <Clock className="w-5 h-5 text-[#B0122B]" />
                                                         </div>
 
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="font-semibold text-slate-900 truncate">
+                                                            <p className="font-bold text-slate-900 text-[15px] sm:text-[16px] leading-snug">
                                                                 {activity.action}
                                                             </p>
-                                                            <p className="text-sm text-slate-600 truncate">
-                                                                {activity.tool} • {activity.user}
+                                                            <p className="text-sm text-slate-600 mt-1 truncate">
+                                                                <span className="font-medium text-[#7A0C1E]">
+                                                                    {activity.tool}
+                                                                </span>{' '}
+                                                                • {activity.user}
                                                             </p>
                                                         </div>
 
-                                                        <div className="text-sm text-slate-500 font-medium whitespace-nowrap">
-                                                            {formatTimeAgo(activity.timestamp)}
+                                                        <div className="shrink-0">
+                                                            <div className="px-3 py-1.5 rounded-full bg-[#B0122B]/8 border border-[#B0122B]/12 text-[13px] font-semibold text-[#7A0C1E] whitespace-nowrap">
+                                                                {formatTimeAgo(activity.timestamp)}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="text-center py-8 text-slate-500">
-                                                    <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                                    <p>No recent activities</p>
+                                                <div className="text-center py-10 text-slate-500">
+                                                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FBE4E8] to-[#F6D4DA]">
+                                                        <Clock className="w-7 h-7 text-[#B0122B]" />
+                                                    </div>
+                                                    <p className="font-medium">No recent activities</p>
                                                 </div>
                                             )}
                                         </div>
@@ -766,11 +852,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                                     </div>
                                 }
                             >
-                                <Card className="bg-white/75 backdrop-blur-xl shadow-xl border border-white/30">
-                                    <CardBody className="p-4 sm:p-6">
-                                        <DashboardCharts chartsData={chartsData} />
-                                    </CardBody>
-                                </Card>
+                                <DashboardCharts chartsData={chartsData} />
                             </Tab>
                         )}
                     </Tabs>
@@ -778,46 +860,64 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
                 {/* ✅ Standard: still show My Recent Activities (below metrics) */}
                 {isStandard && (
-                    <Card className="bg-white/80 backdrop-blur-xl shadow-2xl border border-white/30">
-                        <CardHeader className="pb-4">
+                    <Card className="bg-white/80 backdrop-blur-xl shadow-2xl border border-rose-100/80 rounded-[28px] overflow-hidden">
+                        <CardHeader className="pb-4 pt-6 px-6">
                             <div className="flex items-center gap-3 w-full">
                                 <h3 className="text-2xl font-black text-slate-900">
                                     My Recent Activities
                                 </h3>
-                                <div className="flex-1 h-px bg-gradient-to-r from-rose-200 to-transparent" />
+                                <div className="flex-1 h-px bg-gradient-to-r from-[#B0122B]/25 to-transparent" />
                             </div>
                         </CardHeader>
 
-                        <CardBody>
-                            <div className="space-y-3">
+                        <CardBody className="px-6 pb-6">
+                            <div className="space-y-4">
                                 {activitiesToShow.length ? (
                                     activitiesToShow.slice(0, 5).map((activity, index) => (
                                         <div
                                             key={index}
-                                            className="flex items-center gap-4 p-4 bg-white/70 rounded-xl border border-rose-100 hover:border-rose-200 hover:shadow-md transition-all"
+                                            className="
+                                                group relative flex items-center gap-4
+                                                rounded-2xl border border-rose-200/70
+                                                bg-gradient-to-r from-[#B0122B]/[0.04] via-white to-white
+                                                px-5 py-5
+                                                transition-all duration-300
+                                                hover:-translate-y-0.5
+                                                hover:shadow-lg
+                                                hover:border-[#B0122B]/25
+                                            "
                                         >
-                                            <div className="p-3 bg-gradient-to-br from-rose-100 to-red-100 rounded-xl">
-                                                <Clock className="w-5 h-5 text-rose-700" />
+                                            <div className="absolute left-0 top-4 bottom-4 w-1 rounded-full bg-gradient-to-b from-[#7A0C1E] to-[#B91C1C] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                                            <div className="shrink-0 p-3 rounded-2xl bg-gradient-to-br from-[#FBE4E8] to-[#F6D4DA] shadow-sm border border-rose-100">
+                                                <Clock className="w-5 h-5 text-[#B0122B]" />
                                             </div>
 
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-semibold text-slate-900 truncate">
+                                                <p className="font-bold text-slate-900 text-[15px] sm:text-[16px] leading-snug">
                                                     {activity.action}
                                                 </p>
-                                                <p className="text-sm text-slate-600 truncate">
-                                                    {activity.tool} • {activity.user}
+                                                <p className="text-sm text-slate-600 mt-1 truncate">
+                                                    <span className="font-medium text-[#7A0C1E]">
+                                                        {activity.tool}
+                                                    </span>{' '}
+                                                    • {activity.user}
                                                 </p>
                                             </div>
 
-                                            <div className="text-sm text-slate-500 font-medium whitespace-nowrap">
-                                                {formatTimeAgo(activity.timestamp)}
+                                            <div className="shrink-0">
+                                                <div className="px-3 py-1.5 rounded-full bg-[#B0122B]/8 border border-[#B0122B]/12 text-[13px] font-semibold text-[#7A0C1E] whitespace-nowrap">
+                                                    {formatTimeAgo(activity.timestamp)}
+                                                </div>
                                             </div>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-center py-8 text-slate-500">
-                                        <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                        <p>No recent activities</p>
+                                    <div className="text-center py-10 text-slate-500">
+                                        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FBE4E8] to-[#F6D4DA]">
+                                            <Clock className="w-7 h-7 text-[#B0122B]" />
+                                        </div>
+                                        <p className="font-medium">No recent activities</p>
                                     </div>
                                 )}
                             </div>

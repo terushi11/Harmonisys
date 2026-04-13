@@ -19,6 +19,7 @@ export const getUnahonFormsGroupedByClient = async (
     count?: number;
     data?: {
         [client: string]: {
+            id: string;
             confidentialForm: ConfidentialForm;
             checklist: Checklist;
             responder: string;
@@ -125,12 +126,12 @@ export const getUnahonFormsGroupedByClient = async (
         // Grouping by client with the correct data structure
         const groupedByClient: {
             [client: string]: {
+                id: string;
                 confidentialForm: ConfidentialForm;
                 checklist: Checklist;
                 responder: string;
             }[];
         } = {};
-
         for (const form of unahonForms) {
             // Convert checklist data to the expected structure
             const checklistData: Checklist = {};
@@ -158,6 +159,7 @@ export const getUnahonFormsGroupedByClient = async (
             }
 
             groupedByClient[form.client].push({
+                id: form.id,
                 confidentialForm,
                 checklist: checklistData,
                 responder: form.responder.name || 'Unknown',

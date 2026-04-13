@@ -1,4 +1,4 @@
-import { UserType } from '@prisma/client';
+import { Gender, MhpssLevel, UserType } from '@prisma/client';
 import { DefaultSession } from 'next-auth';
 import { JWT } from 'next-auth/jwt';
 
@@ -9,6 +9,9 @@ declare module 'next-auth' {
             isOath: boolean;
             role: UserType;
             competency: number | null;
+            mhpssLevel: MhpssLevel | null;
+            region: string | null;
+            gender: Gender | null;
             image: string | null;
         } & DefaultSession['user'];
     }
@@ -20,6 +23,9 @@ declare module 'next-auth/jwt' {
         isOath: boolean;
         role: UserType;
         competency: number | null;
+        mhpssLevel: MhpssLevel | null;
+        region: string | null;
+        gender: Gender | null;
         image: string | null;
     }
 }

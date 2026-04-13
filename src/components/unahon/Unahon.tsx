@@ -5,9 +5,6 @@ import type { UnahonDashboardProps, UnahonSummary, UnahonProps } from '@/types';
 import { Skeleton, Card, CardBody, CardHeader, Button } from '@heroui/react';
 import {
   Cell,
-  Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   BarChart,
@@ -25,9 +22,9 @@ import {
   FileText,
   ArrowLeft,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { AssessmentType } from '@prisma/client';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import UnahonManagement from '@/components/unahon/UnahonManagement';
 import UnahonForm from '@/components/unahon/UnahonForm';
 import Link from 'next/link';
 
@@ -38,6 +35,8 @@ const Unahon = ({ session }: UnahonDashboardProps) => {
 
   const [isUnahonView, setIsUnahonView] = useState<boolean>(false);
   const [isReassessment, setIsReassessment] = useState<boolean>(false);
+  const [hasPendingReassessment, setHasPendingReassessment] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<any>(null);
 
   
   const [currentUnahonProps, setCurrentUnahonProps] = useState<UnahonProps>({
@@ -55,12 +54,7 @@ const isResponderView = userRole === 'RESPONDER';
   const BG = 'bg-gradient-to-br from-rose-50 via-red-50 to-amber-50';
   const TITLE_GRADIENT = 'from-[#7A0C1E] via-[#991B1B] to-[#B91C1C]';
   const ACCENT_BAR = 'from-[#991B1B] to-[#B91C1C]';
-  const BTN = 'bg-[#B91C1C] hover:bg-[#991B1B]';
-
-  // ✅ Unified button motion (same hover feel for both)
-  const BTN_MOTION =
-    'shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 hover:scale-105';
-
+  
   // ✅ Better-looking Go Back (light red, cleaner)
   const GO_BACK =
     'h-12 bg-white/70 backdrop-blur-sm border border-[#B91C1C]/25 text-[#7A0C1E] ' +
@@ -68,50 +62,63 @@ const isResponderView = userRole === 'RESPONDER';
     'transition-all duration-500 ' +
     'shadow-md hover:shadow-xl transform hover:-translate-y-1 hover:scale-105';
 
-      // ✅ SAMPLE DATA (remove this once Firebase / real data is available)------------
-  const SAMPLE_SUMMARY: UnahonSummary = {
-    redCount: 6,
-    yellowCount: 10,
-    greenCount: 18,
-    noneCount: 3,
-    initialAssessment: 20,
-    reassessment: 17,
-  };
+  const displaySummary = summary;
 
-  // ✅ Use sample if summary is null (remove fallback later)
+  // ✅ Header gradient card + pill buttons (red theme)
+  const HERO_CARD =
+    'rounded-3xl overflow-hidden border border-white/20 ' +
+    'bg-gradient-to-r from-[#7A0C1E] via-[#991B1B] to-[#B91C1C] ' +
+    'shadow-[0_18px_45px_rgba(0,0,0,0.22)]';
+
+  const HERO_TITLE = 'text-white';
+  const HERO_SUBTITLE = 'text-white/85';
+
+  // pill glass (like your green sample, but red)
+  const HERO_BTN_BASE =
+    'h-12 px-6 rounded-2xl font-semibold ' +
+    'backdrop-blur-sm transition-all duration-300 ' +
+    'shadow-[0_10px_24px_rgba(0,0,0,0.18)] hover:shadow-[0_14px_30px_rgba(0,0,0,0.22)] ' +
+    'transform hover:-translate-y-0.5';
+
+  const HERO_BTN_OUTLINE =
+    HERO_BTN_BASE +
+    ' bg-white/10 text-white border border-white/35 hover:bg-white/15';
+
+  const HERO_BTN_SOLID =
+    HERO_BTN_BASE +
+    ' bg-white text-[#7A0C1E] border border-white/20 hover:bg-white/90';
 
 
-    // ✅ Use sample if summary is null OR returns all zeros (remove this later)
-  const isAllZero =
-    !!summary &&
-    summary.redCount === 0 &&
-    summary.yellowCount === 0 &&
-    summary.greenCount === 0 &&
-    summary.noneCount === 0 &&
-    summary.initialAssessment === 0 &&
-    summary.reassessment === 0;
-
-  const displaySummary = !summary || isAllZero ? SAMPLE_SUMMARY : summary;
-
-  //  const displaySummary = summary ?? SAMPLE_SUMMARY;
-
-
-  useEffect(() => {
-    const fetchSummary = async () => {
+    const fetchUnahonDashboardData = async () => {
       setIsLoading(true);
 
       try {
-        const data = await getUnahonFormsSummary();
-        setSummary(data);
+        const [summaryData, pendingRes] = await Promise.all([
+          getUnahonFormsSummary(),
+          fetch('/api/unahon/reassess/pending'),
+        ]);
+
+        setSummary(summaryData);
+
+        const pendingData = await pendingRes.json();
+
+        if (pendingRes.ok && pendingData.hasPending) {
+          setHasPendingReassessment(true);
+          setPendingRequest(pendingData.pendingRequest);
+        } else {
+          setHasPendingReassessment(false);
+          setPendingRequest(null);
+        }
       } catch (error) {
-        console.log('Error in loading summary', error);
+        console.log('Error loading Unahon data', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchSummary();
-  }, []);
+    useEffect(() => {
+      fetchUnahonDashboardData();
+    }, []);
 
   const handleManagementStateChange = (isViewing: boolean) => {
     setShowManagement(!isViewing);
@@ -129,7 +136,7 @@ const isResponderView = userRole === 'RESPONDER';
     }
   };
 
-  const handleReturnToManagement = () => {
+  const handleReturnToManagement = async () => {
     setIsUnahonView(false);
     setIsReassessment(false);
     setCurrentUnahonProps({
@@ -137,6 +144,25 @@ const isResponderView = userRole === 'RESPONDER';
       isViewOnly: false,
       isReassessment: false,
     });
+
+    await fetchUnahonDashboardData();
+  };
+
+  const handleStartReassessment = () => {
+    setCurrentUnahonProps({
+      session: session!,
+      isViewOnly: false,
+      isReassessment: true,
+      clientConfidentialForm: {
+        client: pendingRequest?.client || '',
+        userId: session!.user.id!,
+        date: new Date(),
+        affiliation: pendingRequest?.affiliation || '',
+        assessmentType: AssessmentType.RE_ASSESSMENT,
+      },
+    });
+
+    setIsReassessment(true);
   };
 
   if (isUnahonView || isReassessment) {
@@ -242,17 +268,39 @@ const isResponderView = userRole === 'RESPONDER';
 
         {showManagement && (
           <>
+              {hasPendingReassessment && (
+                <Card className="mb-8 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 shadow-lg">
+                  <CardBody className="p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                      <div>
+                        <h2 className="text-2xl font-bold text-amber-800 mb-2">
+                          Reassessment Required
+                        </h2>
+                        <p className="text-amber-700">
+                          An administrator requested that you complete a Unahon reassessment.
+                        </p>
+                      </div>
+
+                      <Button
+                        className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                        size="lg"
+                        onPress={handleStartReassessment}
+                      >
+                        Start Reassessment
+                      </Button>
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
             {/* Header Section */}
-            <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
+            <Card className={`mb-8 ${HERO_CARD}`}>
               <CardBody className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div>
-                    <h1
-                      className={`text-4xl lg:text-5xl font-black bg-gradient-to-r ${TITLE_GRADIENT} bg-clip-text text-transparent mb-2`}
-                    >
+                    <h1 className={`text-4xl lg:text-5xl font-black mb-2 ${HERO_TITLE}`}>
                       Unahon Dashboard
                     </h1>
-                    <p className="text-slate-600 text-lg">
+                    <p className={`text-lg ${HERO_SUBTITLE}`}>
                       Comprehensive overview of assessment data and analytics
                     </p>
                   </div>
@@ -260,19 +308,19 @@ const isResponderView = userRole === 'RESPONDER';
                   {/* Actions (Go Back beside Unahon Form) */}
                   <div className="flex flex-col sm:flex-row gap-3 justify-end">
                     {!isResponderView && (
-                    <Button
-                      as={Link}
-                      href="/overview/unahon"
-                      variant="bordered"
-                      startContent={<ArrowLeft className="w-4 h-4" />}
-                      className={GO_BACK}
-                    >
-                      Go Back
-                    </Button>
+                      <Button
+                        as={Link}
+                        href="/overview/unahon"
+                        variant="bordered"
+                        startContent={<ArrowLeft className="w-4 h-4 text-white" />}
+                        className={HERO_BTN_OUTLINE}
+                      >
+                        Go Back
+                      </Button>
                     )}
 
                     <Button
-                      className={`font-bold ${BTN} text-white min-w-[180px] h-12 ${BTN_MOTION}`}
+                      className={`${HERO_BTN_SOLID} min-w-[180px]`}
                       size="lg"
                       onPress={() => router.push('/unahon/form')}
                       endContent={<FileText className="w-5 h-5" />}
@@ -285,7 +333,7 @@ const isResponderView = userRole === 'RESPONDER';
             </Card>
 
             {/* Summary Cards */}
-            {summary && (
+            {displaySummary && (
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                   <div
@@ -299,7 +347,7 @@ const isResponderView = userRole === 'RESPONDER';
   {
     name: 'Red Assessments',
     label: 'Critical Attention',
-    value: summary.redCount,
+    value: displaySummary.redCount,
     icon: BellRing,
 
     // IRSOverview-style card
@@ -317,7 +365,7 @@ const isResponderView = userRole === 'RESPONDER';
   {
     name: 'Yellow Assessments',
     label: 'Needs Attention',
-    value: summary.yellowCount,
+    value: displaySummary.yellowCount,
     icon: AlertTriangle,
 
     cardBg: 'bg-gradient-to-br from-amber-500/15 via-amber-500/10 to-amber-500/5 to-white/60',
@@ -332,7 +380,7 @@ const isResponderView = userRole === 'RESPONDER';
   {
     name: 'Green Assessments',
     label: 'Minimal Attention',
-    value: summary.greenCount,
+    value: displaySummary.greenCount,
     icon: ShieldCheck,
 
     cardBg: 'bg-gradient-to-br from-green-500/15 via-green-500/10 to-green-500/5 to-white/60',
@@ -347,7 +395,7 @@ const isResponderView = userRole === 'RESPONDER';
   {
     name: 'No Assessments',
     label: 'No Data',
-    value: summary.noneCount,
+    value: displaySummary.noneCount,
     icon: FileText,
 
     cardBg: 'bg-gradient-to-br from-slate-500/12 via-slate-500/8 to-slate-500/5 to-white/60',
@@ -403,10 +451,10 @@ ring-2 ring-white/70`}
                                 width: `${Math.min(
                                   (value /
                                     Math.max(
-                                      summary.redCount +
-                                        summary.yellowCount +
-                                        summary.greenCount +
-                                        summary.noneCount,
+                                      displaySummary.redCount +
+                                      displaySummary.yellowCount +
+                                      displaySummary.greenCount +
+                                      displaySummary.noneCount,
                                       1
                                     )) *
                                     100,
@@ -424,8 +472,7 @@ ring-2 ring-white/70`}
             )}
 
             {/* Charts Section */}
-                        {/* Charts Section */}
-            {(summary || true) && (
+            {displaySummary && (
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                   <div
@@ -620,9 +667,7 @@ ring-2 ring-white/70`}
               </div>
             )}
           </>
-        )}
-
-        
+        )}        
       </div>
     </div>
   );

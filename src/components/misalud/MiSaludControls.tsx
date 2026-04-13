@@ -15,6 +15,8 @@ interface Props {
   setSearchQuery: Dispatch<SetStateAction<string>>;
   selectedFilter: string;
   setSelectedFilter: Dispatch<SetStateAction<string>>;
+  showLeaderActions?: boolean;
+  onLeaderRequestsClick?: () => void;
 }
 
 const MiSaludControls = ({
@@ -24,6 +26,8 @@ const MiSaludControls = ({
   setSearchQuery,
   selectedFilter,
   setSelectedFilter,
+  showLeaderActions = false,
+  onLeaderRequestsClick,
 }: Props) => {
   const viewOptions = [
     { label: 'Teams', value: 'teams' },
@@ -118,6 +122,18 @@ const MiSaludControls = ({
               ))}
             </DropdownMenu>
           </Dropdown>
+
+          {showLeaderActions && (
+            <Button
+              className="font-semibold min-w-[220px]"
+              color="success"
+              variant="flat"
+              size="lg"
+              onPress={onLeaderRequestsClick}
+            >
+              👥 Team Requests
+            </Button>
+          )}
         </div>
 
         {/* Search */}

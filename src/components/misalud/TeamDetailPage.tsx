@@ -167,10 +167,7 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
 
                 return {
                     question: `Q${questionId}`,
-                    questionText:
-                        questionText.length > 50
-                            ? questionText.substring(0, 50) + '...'
-                            : questionText,
+                    questionText,
                     positive,
                     neutral,
                     negative,
@@ -389,26 +386,26 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
         <div className="bg-gray-50 min-h-screen p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center gap-4 mb-4">
+                <div className="mb-8 pt-6">
+                    <div className="mb-2 flex items-start justify-between gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900">
+                                Team: {teamName} - Health Status
+                            </h1>
+                            <p className="mt-2 text-gray-600">
+                                Aggregated wellness data and response analysis
+                            </p>
+                        </div>
+
                         <Button
-                            variant="flat"
-                            color="primary"
+                            variant="solid"
+                            className="bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
                             startContent={<ArrowLeft className="w-4 h-4" />}
                             onPress={() => router.back()}
                         >
                             Back to MiSalud Dashboard
                         </Button>
                     </div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <Activity className="w-8 h-8 text-blue-600" />
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Team {teamName} - Health Status
-                        </h1>
-                    </div>
-                    <p className="text-gray-600">
-                        Aggregated wellness data and response analysis
-                    </p>
                 </div>
 
                 {/* Stats Cards */}
@@ -486,106 +483,103 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
 
                 {/* Team Members List */}
                 {teamSubmissions.length > 0 && (
-                    <Card className="mb-8">
-                        <CardHeader>
-                            <div className="flex items-center gap-2">
-                                <Users className="w-5 h-5 text-gray-600" />
-                                <h2 className="text-xl font-semibold text-gray-900">
-                                    Team Members & Recent Submissions
-                                </h2>
-                            </div>
-                        </CardHeader>
-                        <CardBody>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {teamSubmissions.map((submission) => (
-                                    <Card
-                                        key={submission.id}
-                                        className="border hover:shadow-lg transition-shadow"
-                                    >
-                                        <CardBody>
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <User className="w-4 h-4 text-gray-500" />
-                                                    <h3 className="font-semibold text-gray-900">
-                                                        {submission.name}
-                                                    </h3>
-                                                </div>
-                                                <Chip
-                                                    size="sm"
-                                                    color="primary"
-                                                    variant="flat"
-                                                >
-                                                    {
-                                                        submission.responses
-                                                            .length
-                                                    }{' '}
-                                                    responses
-                                                </Chip>
+                    <div className="mb-8">
+                        <div className="mb-4 flex items-center gap-2">
+                            <Users className="w-5 h-5 text-emerald-600" />
+                            <h2 className="text-xl font-semibold text-gray-900">
+                                Team Members & Recent Submissions
+                            </h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                            {teamSubmissions.map((submission) => (
+                                <Card
+                                    key={submission.id}
+                                    className="border border-emerald-100 shadow-sm hover:shadow-lg transition-shadow"
+                                >
+                                    <CardBody>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-4 h-4 text-emerald-600" />
+                                                <h3 className="font-semibold text-gray-900">
+                                                    {submission.name}
+                                                </h3>
                                             </div>
-                                            <div className="space-y-2 text-sm text-gray-600">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        <span>Submitted:</span>
-                                                    </div>
-                                                    <span className="font-medium">
-                                                        {formatDate(
-                                                            submission.date
-                                                        )}
-                                                    </span>
+                                            <Chip
+                                                size="sm"
+                                                color="success"
+                                                variant="flat"
+                                            >
+                                                {submission.responses.length} responses
+                                            </Chip>
+                                        </div>
+
+                                        <div className="space-y-2 text-sm text-gray-600">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    <span>Submitted:</span>
                                                 </div>
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock className="w-3 h-3" />
-                                                        <span>Created:</span>
-                                                    </div>
-                                                    <span className="font-medium">
-                                                        {formatDate(
-                                                            submission.createdAt
-                                                        )}
-                                                    </span>
-                                                </div>
+                                                <span className="font-medium">
+                                                    {formatDate(submission.date)}
+                                                </span>
                                             </div>
-                                        </CardBody>
-                                    </Card>
-                                ))}
-                            </div>
-                        </CardBody>
-                    </Card>
+
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>Created:</span>
+                                                </div>
+                                                <span className="font-medium">
+                                                    {formatDate(submission.createdAt)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </CardBody>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
                 )}
 
                 {/* Health Score Progress */}
-                <Card className="mb-8">
+                <Card className="mb-8 border border-emerald-100 shadow-sm">
                     <CardHeader>
                         <div className="flex items-center gap-2">
-                            <Target className="w-5 h-5 text-gray-600" />
+                            <Target className="w-5 h-5 text-emerald-600" />
                             <h2 className="text-xl font-semibold text-gray-900">
                                 Overall Health Score
                             </h2>
                         </div>
                     </CardHeader>
-                    <CardBody>
-                        <div className="space-y-4">
+
+                    <CardBody className="px-6 pb-6 pt-2">
+                        <div className="w-full space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-gray-600">
+                                    Health Score
+                                </span>
+
+                                <span className="text-2xl font-bold text-emerald-700 leading-none">
+                                    {healthScore.score.toFixed(0)}%
+                                </span>
+                            </div>
+
                             <Progress
                                 size="lg"
                                 value={healthScore.score}
-                                color={healthScore.color as colorTypes}
-                                showValueLabel={true}
-                                className="max-w-md"
+                                color="success"
+                                showValueLabel={false}
+                                className="w-full"
                                 aria-labelledby="progress"
                                 aria-valuenow={healthScore.score}
                                 aria-valuemin={0}
                                 aria-valuemax={100}
                             />
-                            <p className="text-sm text-gray-600 flex items-center gap-2">
-                                <BarChart3 className="w-4 h-4" />
-                                Based on{' '}
-                                {chartData.reduce(
-                                    (sum, item) => sum + item.total,
-                                    0
-                                )}{' '}
-                                total responses across {chartData.length}{' '}
-                                questions
+
+                            <p className="pt-1 text-sm text-gray-600 flex items-center gap-2">
+                                <BarChart3 className="w-4 h-4 text-emerald-600" />
+                                Based on {chartData.reduce((sum, item) => sum + item.total, 0)} total responses across {chartData.length} questions
                             </p>
                         </div>
                     </CardBody>
@@ -594,7 +588,7 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
                 {/* Chart Section */}
                 {chartData.length > 0 ? (
                     <Card className="mb-8">
-                        <CardHeader>
+                        <CardHeader className="pb-2">
                             <div className="flex items-center gap-2">
                                 <BarChart3 className="w-5 h-5 text-gray-600" />
                                 <div>
@@ -608,18 +602,18 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardBody>
-                            <div className="w-full h-[500px]">
+                        <CardBody className="pt-6">
+                            <div className="w-full h-[360px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         data={chartData}
                                         margin={{
-                                            top: 20,
-                                            right: 30,
-                                            left: 20,
-                                            bottom: 80,
+                                            top: 10,
+                                            right: 20,
+                                            left: 10,
+                                            bottom: 40,
                                         }}
-                                        barCategoryGap="20%"
+                                        barCategoryGap="18%"
                                     >
                                         <CartesianGrid
                                             strokeDasharray="3 3"
@@ -627,9 +621,9 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
                                         />
                                         <XAxis
                                             dataKey="question"
-                                            angle={-45}
+                                            angle={-35}
                                             textAnchor="end"
-                                            height={100}
+                                            height={70}
                                             fontSize={12}
                                             stroke="#666"
                                         />
@@ -637,7 +631,7 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
                                         <Tooltip content={<CustomTooltip />} />
                                         <Legend
                                             wrapperStyle={{
-                                                paddingTop: '20px',
+                                                paddingTop: '8px',
                                             }}
                                             iconType="rect"
                                         />
@@ -684,142 +678,119 @@ const TeamDetailPage = ({ teamName }: TeamPageProps) => {
 
                 {/* Question Details */}
                 {chartData.length > 0 && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-gray-600" />
-                                <h2 className="text-xl font-semibold text-gray-900">
-                                    Detailed Question Analysis
-                                </h2>
+    <div className="mb-8">
+        <div className="mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-emerald-600" />
+            <h2 className="text-xl font-semibold text-gray-900">
+                Detailed Question Analysis
+            </h2>
+        </div>
+
+        <div className="space-y-4">
+            {chartData.map((item, index) => (
+                <Card key={index} className="border border-gray-200 shadow-sm">
+                    <CardBody>
+                        <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4 text-emerald-600" />
+                            {item.question}: {item.questionText}
+                        </h3>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="text-center p-3 bg-green-50 rounded-lg">
+                                <div className="flex items-center justify-center gap-1 mb-1">
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                    <div className="text-2xl font-bold text-green-600">
+                                        {item.positive}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    Positive
+                                </div>
+                                <Progress
+                                    size="sm"
+                                    value={(item.positive / item.total) * 100}
+                                    color="success"
+                                    className="mt-2"
+                                    aria-labelledby="progress"
+                                    aria-valuenow={(item.positive / item.total) * 100}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                />
                             </div>
-                        </CardHeader>
-                        <CardBody>
-                            <div className="space-y-6">
-                                {chartData.map((item, index) => (
-                                    <Card key={index} className="border">
-                                        <CardBody>
-                                            <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                                                <Target className="w-4 h-4 text-blue-500" />
-                                                {item.question}:{' '}
-                                                {item.questionText}
-                                            </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div className="text-center p-3 bg-green-50 rounded-lg">
-                                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                                        <CheckCircle className="w-4 h-4 text-green-600" />
-                                                        <div className="text-2xl font-bold text-green-600">
-                                                            {item.positive}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        Positive
-                                                    </div>
-                                                    <Progress
-                                                        size="sm"
-                                                        value={
-                                                            (item.positive /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        color="success"
-                                                        className="mt-2"
-                                                        aria-labelledby="progress"
-                                                        aria-valuenow={
-                                                            (item.positive /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        aria-valuemin={0}
-                                                        aria-valuemax={100}
-                                                    />
-                                                </div>
-                                                <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                                        <AlertCircle className="w-4 h-4 text-yellow-600" />
-                                                        <div className="text-2xl font-bold text-yellow-600">
-                                                            {item.neutral}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        Neutral
-                                                    </div>
-                                                    <Progress
-                                                        size="sm"
-                                                        value={
-                                                            (item.neutral /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        color="warning"
-                                                        className="mt-2"
-                                                        aria-labelledby="progress"
-                                                        aria-valuenow={
-                                                            (item.neutral /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        aria-valuemin={0}
-                                                        aria-valuemax={100}
-                                                    />
-                                                </div>
-                                                <div className="text-center p-3 bg-red-50 rounded-lg">
-                                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                                        <AlertCircle className="w-4 h-4 text-red-600" />
-                                                        <div className="text-2xl font-bold text-red-600">
-                                                            {item.negative}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        Needs Attention
-                                                    </div>
-                                                    <Progress
-                                                        size="sm"
-                                                        value={
-                                                            (item.negative /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        color="danger"
-                                                        className="mt-2"
-                                                        aria-labelledby="progress"
-                                                        aria-valuenow={
-                                                            (item.negative /
-                                                                item.total) *
-                                                            100
-                                                        }
-                                                        aria-valuemin={0}
-                                                        aria-valuemax={100}
-                                                    />
-                                                </div>
-                                                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                                                    <div className="flex items-center justify-center gap-1 mb-1">
-                                                        <Target className="w-4 h-4 text-gray-600" />
-                                                        <div className="text-2xl font-bold text-gray-900">
-                                                            {item.total}
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        Total
-                                                    </div>
-                                                    <Progress
-                                                        size="sm"
-                                                        value={100}
-                                                        color="default"
-                                                        className="mt-2"
-                                                        aria-labelledby="progress"
-                                                        aria-valuenow={100}
-                                                        aria-valuemin={0}
-                                                        aria-valuemax={100}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </CardBody>
-                                    </Card>
-                                ))}
+
+                            <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                                <div className="flex items-center justify-center gap-1 mb-1">
+                                    <AlertCircle className="w-4 h-4 text-yellow-600" />
+                                    <div className="text-2xl font-bold text-yellow-600">
+                                        {item.neutral}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    Neutral
+                                </div>
+                                <Progress
+                                    size="sm"
+                                    value={(item.neutral / item.total) * 100}
+                                    color="warning"
+                                    className="mt-2"
+                                    aria-labelledby="progress"
+                                    aria-valuenow={(item.neutral / item.total) * 100}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                />
                             </div>
-                        </CardBody>
-                    </Card>
-                )}
+
+                            <div className="text-center p-3 bg-red-50 rounded-lg">
+                                <div className="flex items-center justify-center gap-1 mb-1">
+                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                    <div className="text-2xl font-bold text-red-600">
+                                        {item.negative}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    Needs Attention
+                                </div>
+                                <Progress
+                                    size="sm"
+                                    value={(item.negative / item.total) * 100}
+                                    color="danger"
+                                    className="mt-2"
+                                    aria-labelledby="progress"
+                                    aria-valuenow={(item.negative / item.total) * 100}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                />
+                            </div>
+
+                            <div className="text-center p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center justify-center gap-1 mb-1">
+                                    <Target className="w-4 h-4 text-gray-600" />
+                                    <div className="text-2xl font-bold text-gray-900">
+                                        {item.total}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-600">
+                                    Total
+                                </div>
+                                <Progress
+                                    size="sm"
+                                    value={100}
+                                    color="default"
+                                    className="mt-2"
+                                    aria-labelledby="progress"
+                                    aria-valuenow={100}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                />
+                            </div>
+                        </div>
+                    </CardBody>
+                </Card>
+            ))}
+        </div>
+    </div>
+)}
+            
             </div>
         </div>
     );

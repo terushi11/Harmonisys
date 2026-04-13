@@ -26,11 +26,12 @@ const SuccessDialog = ({
         switch (variant) {
             case 'success':
                 return {
-                    iconBg: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+                    iconBg: 'bg-gradient-to-r from-[#7B122F] to-[#A3153D]',
                     iconColor: 'text-white',
                     titleColor:
-                        'bg-gradient-to-r from-emerald-700 to-teal-700 bg-clip-text text-transparent',
-                    buttonColor: 'success' as const,
+                        'bg-gradient-to-r from-[#7B122F] to-[#A3153D] bg-clip-text text-transparent',
+                    buttonClass:
+                        'bg-gradient-to-r from-[#7B122F] to-[#A3153D] text-white shadow-lg hover:shadow-xl hover:from-[#651026] hover:to-[#8F1236]',
                 };
             case 'info':
                 return {
@@ -38,7 +39,8 @@ const SuccessDialog = ({
                     iconColor: 'text-white',
                     titleColor:
                         'bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent',
-                    buttonColor: 'primary' as const,
+                    buttonClass:
+                        'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg hover:shadow-xl',
                 };
             case 'warning':
                 return {
@@ -46,15 +48,17 @@ const SuccessDialog = ({
                     iconColor: 'text-white',
                     titleColor:
                         'bg-gradient-to-r from-amber-700 to-orange-700 bg-clip-text text-transparent',
-                    buttonColor: 'warning' as const,
+                    buttonClass:
+                        'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg hover:shadow-xl',
                 };
             default:
                 return {
-                    iconBg: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+                    iconBg: 'bg-gradient-to-r from-[#7B122F] to-[#A3153D]',
                     iconColor: 'text-white',
                     titleColor:
-                        'bg-gradient-to-r from-emerald-700 to-teal-700 bg-clip-text text-transparent',
-                    buttonColor: 'success' as const,
+                        'bg-gradient-to-r from-[#7B122F] to-[#A3153D] bg-clip-text text-transparent',
+                    buttonClass:
+                        'bg-gradient-to-r from-[#7B122F] to-[#A3153D] text-white shadow-lg hover:shadow-xl hover:from-[#651026] hover:to-[#8F1236]',
                 };
         }
     };
@@ -103,9 +107,8 @@ const SuccessDialog = ({
 
                     {/* Action Button */}
                     <Button
-                        color={styles.buttonColor}
                         onPress={onClose}
-                        className="font-bold min-w-[120px] h-12 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                        className={`font-bold min-w-[120px] h-12 transition-all duration-300 transform hover:-translate-y-0.5 ${styles.buttonClass}`}
                         size="lg"
                     >
                         {buttonText}

@@ -28,6 +28,7 @@ import { DateValue, CalendarDate } from '@internationalized/date';
 interface QuestionnaireProps {
     onClose?: () => void;
     openSuccessModal: () => void;
+    approvedTeamName?: string;
     handleRecommendations: (
         responses: QuestionnaireResponses,
         formData: QuestionnaireFormData
@@ -37,13 +38,14 @@ interface QuestionnaireProps {
 const Questionnaire: React.FC<QuestionnaireProps> = ({
     onClose,
     openSuccessModal,
+    approvedTeamName,
     handleRecommendations,
 }) => {
     const [responses, setResponses] = useState<QuestionnaireResponses>({});
     const [formData, setFormData] = useState<QuestionnaireFormData>({
         name: '',
         date: new Date(),
-        team: '',
+        team: approvedTeamName || '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<
@@ -76,7 +78,11 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({
     };
 
     const resetForm = () => {
-        setFormData({ name: '', date: new Date(), team: '' });
+        setFormData({
+            name: '',
+            date: new Date(),
+            team: approvedTeamName || '',
+        });
         setResponses({});
     };
 
@@ -235,11 +241,10 @@ const Questionnaire: React.FC<QuestionnaireProps> = ({
                                 isRequired
                                 name="team"
                                 label="Team/Department"
-                                placeholder="e.g., Marketing Team, Engineering, HR"
                                 value={formData.team}
-                                onChange={handleInputChange}
-                                isDisabled={isSubmitting}
+                                isDisabled
                                 variant="bordered"
+                                description="This team is linked to your approved Mi Salud registration."
                                 classNames={{
                                     input: 'text-gray-900',
                                     label: 'text-gray-700 font-medium',

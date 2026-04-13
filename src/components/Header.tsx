@@ -2,8 +2,7 @@
 
 import type React from 'react';
 import { footerLinks, headerLinks } from '@/constants';
-import SignOutButton from './SignOutButton';
-import { handleGoogleLogin, handleSignOut } from '@/lib/action/user';
+import { handleSignOut } from '@/lib/action/user';
 import { Button } from '@heroui/react';
 import {
   Dropdown,
@@ -19,8 +18,9 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Session } from 'next-auth';
-import { UserType } from '@prisma/client';
+import { MhpssLevel, UserType } from '@prisma/client';
 import { useState } from 'react';
+import AuthModal from '@/components/auth/AuthModal';
 import {
   ChevronDownIcon,
   MenuIcon,
@@ -130,22 +130,11 @@ function makeToolDropdownTheme(baseHex: string) {
   };
 }
 
-
-
-
-
-
-
-
 const Header: React.FC<HeaderProps> = ({ session }) => {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isToolsExpanded, setToolsExpanded] = useState(false);
-
-  // ✅ Role request UI state (STANDARD users)
-  const [requestedRole, setRequestedRole] = useState<"RESPONDER" | "ADMIN">("RESPONDER");
-  const [requestingRole, setRequestingRole] = useState(false);
-  const [requestRoleMessage, setRequestRoleMessage] = useState<string | null>(null);
-  const [roleRequestSubmitted, setRoleRequestSubmitted] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login');
 
   const pathname = usePathname();
 
@@ -170,7 +159,6 @@ const solidThemeColor =
   solidThemeByTool.home;
 
 
-    
 
   // Determine active dropdown theme
 const themeKey =
@@ -209,64 +197,20 @@ const toolsCssVars = {
     const formatRoleWithUser = (role: UserType): string =>
     `${formatRole(role)} User`;
 
+    const getMhpssDisplay = (mhpssLevel: MhpssLevel | null | undefined): string => {
+      if (!mhpssLevel) return 'Not assessed';
+      return mhpssLevel.replace('LEVEL_', 'Level ');
+    };
 
-      const requestRoleChange = async () => {
-  try {
-    setRequestingRole(true);
-    setRequestRoleMessage(null);
-
-    const res = await fetch("/api/admin/users/role-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toRole: requestedRole }),
-      });
-
-      // Try JSON first, fall back to raw text (helps with 500 HTML/errors)
-      let data: any = null;
-      let rawText: string | null = null;
-
-      try {
-        data = await res.json();
-      } catch {
-        rawText = await res.text().catch(() => null);
-      }
-
-      if (!res.ok || !data?.success) {
-        const msg =
-          data?.message ||
-          (res.status === 409
-            ? "You already have a pending request."
-            : `Request failed (HTTP ${res.status})${rawText ? `: ${rawText}` : ""}`);
-
-        setRequestRoleMessage(msg);
-        return;
-      }
-
-      setRequestRoleMessage("Request submitted! Waiting for admin approval.");
-      setRoleRequestSubmitted(true);
-    } catch {
-      setRequestRoleMessage("Something went wrong. Please try again.");
-    } finally {
-      setRequestingRole(false);
-    }
-  };
-
-
-
-  const getCompetencyDisplay = (competency: number | null): string => {
-    if (competency === null) return 'Not assessed';
-    return `Level ${competency}`;
-  };
-
-  const getCompetencyColor = (
-    competency: number | null
-  ): 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' => {
-    if (competency === 1) return 'secondary';
-    if (competency === 2) return 'success';
-    if (competency === 3) return 'warning';
-    if (competency === 4) return 'danger';
-    return 'default';
-  };
+    const getMhpssColor = (
+      mhpssLevel: MhpssLevel | null | undefined
+    ): 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'danger' => {
+      if (mhpssLevel === MhpssLevel.LEVEL_1) return 'secondary';
+      if (mhpssLevel === MhpssLevel.LEVEL_2) return 'success';
+      if (mhpssLevel === MhpssLevel.LEVEL_3) return 'warning';
+      if (mhpssLevel === MhpssLevel.LEVEL_4) return 'danger';
+      return 'default';
+    };
 
   const getRoleColor = (
     role: UserType
@@ -573,57 +517,11 @@ const toolsCssVars = {
                             }}
                           >
                             <ShieldAlert className="w-4 h-4 opacity-80" />
-                            {getCompetencyDisplay(session.user.competency)}
+                              {getMhpssDisplay(session.user.mhpssLevel)}
                           </span>
                         </div>
                       </div>
                     </DropdownItem>
-
-                    {/* ✅ Role request section (only for STANDARD users) */}
-                    {session?.user?.role === UserType.STANDARD ? (
-                      <DropdownItem
-                        key="role-request"
-                        className="h-auto p-0 data-[hover=true]:bg-transparent cursor-default"
-                        textValue="Request role change"
-                        closeOnSelect={false}
-                      >
-                        <div className="px-5 pb-4 bg-white">
-                          <div className="text-xs font-semibold text-gray-600 mb-2">
-                            Request role change
-                          </div>
-
-                          <div className="flex gap-2 items-center">
-                            <select
-                              disabled={requestingRole || roleRequestSubmitted}
-                              className="flex-1 border rounded-xl px-3 py-2 text-sm bg-white"
-                              value={requestedRole}
-                              onChange={(e) =>
-                                setRequestedRole(e.target.value as "RESPONDER" | "ADMIN")
-                              }
-                            >
-                              <option value="RESPONDER">Responder</option>
-                              <option value="ADMIN">Admin</option>
-                            </select>
-
-                            <button
-                              type="button"
-                              disabled={requestingRole || roleRequestSubmitted}
-                              onClick={requestRoleChange}
-                              className="px-4 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
-                              style={{ backgroundColor: solidThemeColor }}
-                            >
-                              {requestingRole ? "Sending..." : "Request"}
-                            </button>
-                          </div>
-
-                          {requestRoleMessage && (
-                            <div className="mt-2 text-xs text-gray-600">
-                              {requestRoleMessage}
-                            </div>
-                          )}
-                        </div>
-                      </DropdownItem>
-                    ) : null}
 
                     <DropdownItem
                       key="divider"
@@ -669,26 +567,19 @@ const toolsCssVars = {
                   </DropdownMenu>
                 </Dropdown>
               ) : (
-                <form action={handleGoogleLogin}>
-                  <Button
-                    type="submit"
-                    variant="solid"
-                    className="bg-white text-gray-700 hover:bg-gray-50 font-medium shadow-md border-0 transition-all duration-200 hover:shadow-lg px-4"
-                    size="md"
-                    startContent={
-                      <Image
-                        src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
-                        alt="Google Logo"
-                        height={16}
-                        width={16}
-                        className="w-4 h-4"
-                      />
-                    }
-                  >
-                    <span className="hidden sm:inline">Sign in with Google</span>
-                    <span className="sm:hidden">Sign in</span>
-                  </Button>
-                </form>
+                <Button
+                  type="button"
+                  variant="solid"
+                  className="bg-white text-gray-700 hover:bg-gray-50 font-medium shadow-md border-0 transition-all duration-200 hover:shadow-lg px-4"
+                  size="md"
+                  onPress={() => {
+                    setAuthModalView('login');
+                    setIsAuthModalOpen(true);
+                  }}
+                >
+                  <span className="hidden sm:inline">Sign In / Log In</span>
+                  <span className="sm:hidden">Sign In</span>
+                </Button>
               )}
 
               {/* Mobile Toggle */}
@@ -730,9 +621,9 @@ const toolsCssVars = {
                   <Chip size="sm" color={getRoleColor(session.user.role)} variant="flat">
                     {formatRole(session.user.role)}
                   </Chip>
-                  <Chip size="sm" color={getCompetencyColor(session.user.competency)} variant="flat">
-                    {getCompetencyDisplay(session.user.competency)}
-                  </Chip>
+                    <Chip size="sm" color={getMhpssColor(session.user.mhpssLevel)} variant="flat">
+                      {getMhpssDisplay(session.user.mhpssLevel)}
+                    </Chip>
                 </div>
               </div>
             </div>
@@ -824,7 +715,13 @@ hover:text-[color:var(--tool-accent)]
             </Button>
           </div>
         )}
-      </div>
+            </div>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onOpenChange={setIsAuthModalOpen}
+        defaultView={authModalView}
+      />
     </header>
   );
 };

@@ -344,10 +344,10 @@ const REDAS = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
-                                            Current Location
+                                            Selected Location
                                         </h3>
                                         <p className="text-sm text-slate-500">
-                                            Selected area
+                                            City or area being viewed
                                         </p>
                                     </div>
                                 </div>
@@ -383,10 +383,10 @@ const REDAS = () => {
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
-                                            Category
+                                            Training Category
                                         </h3>
                                         <p className="text-sm text-slate-500">
-                                            Training type
+                                            Selected training group
                                         </p>
                                     </div>
                                 </div>
@@ -478,7 +478,7 @@ const REDAS = () => {
                                         <Image
                                             src={
                                             item.gdrive_link === 'N/A'
-                                                ? '/dostPhivolcs.png'
+                                                ? '/dostPhivolcs_withtext.png'
                                                 : `https://drive.google.com/uc?export=view&id=${extractFileId(item.gdrive_link)}`
                                             }
                                             alt="REDAS Training background"
@@ -490,7 +490,7 @@ const REDAS = () => {
                                         <Image
                                             src={
                                             item.gdrive_link === 'N/A'
-                                                ? '/dostPhivolcs.png'
+                                                ? '/dostPhivolcs_withtext.png'
                                                 : `https://drive.google.com/uc?export=view&id=${extractFileId(item.gdrive_link)}`
                                             }
                                             alt="REDAS Training"

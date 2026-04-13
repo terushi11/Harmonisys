@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableHeader,
@@ -21,6 +22,11 @@ import {
   CardBody,
   Chip,
   Input,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
 } from '@heroui/react';
 import useSWR from 'swr';
 import type { User } from '@/types';
@@ -28,6 +34,7 @@ import type { User } from '@/types';
 type PendingRoleRequest = {
   id: string;
   toRole: UserType;
+  requestedMhpssLevel?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   createdAt?: string;
 };
@@ -36,9 +43,10 @@ type UserWithPending = User & {
   pendingRoleRequest?: PendingRoleRequest | null;
 };
 
-import { updateUserCompetency, updateUserRole } from '@/lib/action/user';
-import { UserType } from '@prisma/client';
+import { updateUserMhpssLevel, updateUserRole } from '@/lib/action/user';
+import { MhpssLevel, UserType } from '@prisma/client';
 import {
+  ArrowLeft,
   Users,
   Shield,
   Award,
@@ -119,21 +127,41 @@ const maroonTheme = {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-const competencyOptions = [1, 2, 3, 4, null];
 const roleOptions = [UserType.ADMIN, UserType.RESPONDER, UserType.STANDARD];
 
+const mhpssOptions: Array<MhpssLevel | 'NONE'> = [
+  'NONE',
+  MhpssLevel.LEVEL_1,
+  MhpssLevel.LEVEL_2,
+  MhpssLevel.LEVEL_3,
+  MhpssLevel.LEVEL_4,
+];
+
+const levelMap: Record<1 | 2 | 3 | 4, string> = {
+  1: 'LEVEL_1',
+  2: 'LEVEL_2',
+  3: 'LEVEL_3',
+  4: 'LEVEL_4',
+};
+
 const UserTable = () => {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [activeTab, setActiveTab] = useState<'USERS' | 'PENDING'>('USERS');
   // ✅ Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserType | 'ALL'>('ALL');
   const [mhpssFilter, setMhpssFilter] = useState<number | 'NONE' | 'ALL'>('ALL');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   type PendingRequestRow = {
     id: string;
     fromRole: UserType;
     toRole: UserType;
+    requestedMhpssLevel?: string | null;
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
     createdAt: string;
     user: {
@@ -141,7 +169,7 @@ const UserTable = () => {
       name: string | null;
       email: string;
       role: UserType;
-      competency: number | null;
+      mhpssLevel?: string | null;
       createdAt: string;
     };
   };
@@ -153,13 +181,12 @@ const UserTable = () => {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
   const [editingRow, setEditingRow] = useState<string | null>(null);
-  const [editingField, setEditingField] = useState<'competency' | 'role' | null>(
-    null
-  );
-  const [editedCompetency, setEditedCompetency] = useState<{
-    [key: string]: number | null;
-  }>({});
+  
+  const [editingField, setEditingField] = useState<'role' | 'mhpssLevel' | null>(null);
   const [editedRole, setEditedRole] = useState<{ [key: string]: UserType }>({});
+  const [editedMhpssLevel, setEditedMhpssLevel] = useState<{
+    [key: string]: MhpssLevel | null;
+  }>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const rowsPerPage = 10;
 
@@ -187,11 +214,11 @@ const UserTable = () => {
       const matchesRole = roleFilter === 'ALL' ? true : u.role === roleFilter;
 
       const matchesMHPSS =
-        mhpssFilter === 'ALL'
-          ? true
-          : mhpssFilter === 'NONE'
-          ? u.competency == null
-          : u.competency === mhpssFilter;
+      mhpssFilter === 'ALL'
+        ? true
+        : mhpssFilter === 'NONE'
+        ? u.mhpssLevel == null
+        : u.mhpssLevel === levelMap[mhpssFilter as 1 | 2 | 3 | 4];
 
       return matchesSearch && matchesRole && matchesMHPSS;
     });
@@ -279,54 +306,67 @@ const UserTable = () => {
     [editedRole, mutate]
   );
 
-  const handleDeleteUser = useCallback(
-    async (id: string) => {
-      const confirmDelete = window.confirm(
-        'Are you sure you want to delete this user? This action cannot be undone.'
-      );
-      if (!confirmDelete) return;
-
-      try {
-        const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-        const json = await res.json().catch(() => null);
-
-        if (!res.ok || !json?.success) {
-          alert(json?.message || 'Failed to delete user.');
-          return;
-        }
-        mutate();
-      } catch {
-        alert('Failed to delete user.');
-      }
-    },
-    [mutate]
-  );
-
-  const handleChange = useCallback(
-    async (id: string, value: number | null) => {
+    const handleMhpssLevelChange = useCallback(
+    async (id: string, value: MhpssLevel | null) => {
       try {
         setIsUpdating(true);
-        setEditedCompetency({ ...editedCompetency, [id]: value });
-        await updateUserCompetency(id, value);
+        setEditedMhpssLevel((prev) => ({ ...prev, [id]: value }));
+        await updateUserMhpssLevel(id, value);
+
         mutate((currentData: any) => {
           if (!currentData) return currentData;
           return {
             ...currentData,
             results: currentData.results.map((user: User) =>
-              user.id === id ? { ...user, competency: value } : user
+              user.id === id ? { ...user, mhpssLevel: value } : user
             ),
           };
         }, false);
+
         setEditingRow(null);
         setEditingField(null);
       } catch (error) {
-        console.error('Failed to update competency:', error);
+        console.error('Failed to update MHPSS level:', error);
       } finally {
         setIsUpdating(false);
       }
     },
-    [editedCompetency, mutate]
+    [mutate]
   );
+
+  const openDeleteConfirm = useCallback((id: string, name?: string | null) => {
+  setSelectedUserId(id);
+  setSelectedUserName(name ?? null);
+  setDeleteConfirmOpen(true);
+}, []);
+
+  const handleDeleteUser = useCallback(async () => {
+    if (!selectedUserId) return;
+
+    try {
+      setIsDeleting(true);
+
+      const res = await fetch(`/api/admin/users/${selectedUserId}`, {
+        method: 'DELETE',
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        alert(json?.message || 'Failed to delete user.');
+        return;
+      }
+
+      setDeleteConfirmOpen(false);
+      setSelectedUserId(null);
+      setSelectedUserName(null);
+      mutate();
+    } catch {
+      alert('Failed to delete user.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [selectedUserId, mutate]);
 
   const getRoleIcon = (role: UserType) => {
     switch (role) {
@@ -374,40 +414,18 @@ const UserTable = () => {
     }
   };
 
-  const getCompetencyColor = (competency: number | null) => {
-    if (!competency) return 'default';
-    switch (competency) {
-      case 1:
-        return 'success';
-      case 2:
-        return 'warning';
-      case 3:
-        return 'primary';
-      case 4:
-        return 'danger';
-      default:
-        return 'default';
-    }
-  };
-
   const tableCols = [
     { key: 'name', name: 'Name' },
     { key: 'email', name: 'Email' },
     { key: 'role', name: 'Role' },
-    { key: 'competency', name: 'MHPSS Level' },
+    { key: 'mhpssLevel', name: 'MHPSS Level' },
+    { key: 'region', name: 'Region' }, 
     { key: 'createdAt', name: 'Created' },
     { key: 'actions', name: 'Actions' },
   ];
 
   const renderCell = useCallback(
     (item: UserWithPending, columnKey: string | number) => {
-      const competencyValue =
-        editingRow === item.id && editingField === 'competency'
-          ? editedCompetency[item.id] !== undefined
-            ? editedCompetency[item.id]
-            : item.competency
-          : item.competency;
-
       const roleValue =
         editingRow === item.id && editingField === 'role'
           ? editedRole[item.id] !== undefined
@@ -423,24 +441,28 @@ const UserTable = () => {
                 <span className="font-mono text-sm font-semibold text-slate-900">
                   {item.name}
                 </span>
+
                 <span className="text-xs text-slate-500">
-                  ID: {item.id.slice(-8)}
+                  {item.gender ? item.gender : 'No gender'}
                 </span>
               </div>
             </TableCell>
           );
 
         case 'email':
-          return (
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md border border-white/40 bg-gradient-to-br from-[#4A0707] via-[#6B0F0F] to-[#A11B1B]">
-                  {item.email.charAt(0).toUpperCase()}
-                </div>
-                <span className="font-medium text-slate-700">{item.email}</span>
+        return (
+          <TableCell className="w-[240px]">
+            <div className="flex items-center gap-2 max-w-[240px]">
+              <div className="w-8 h-8 rounded-full flex shrink-0 items-center justify-center text-white font-bold text-sm shadow-md border border-white/40 bg-gradient-to-br from-[#4A0707] via-[#6B0F0F] to-[#A11B1B]">
+                {item.email.charAt(0).toUpperCase()}
               </div>
-            </TableCell>
-          );
+
+              <span className="font-medium text-slate-700 truncate">
+                {item.email}
+              </span>
+            </div>
+          </TableCell>
+        );
 
         case 'role':
           return (
@@ -506,89 +528,123 @@ const UserTable = () => {
                   </Chip>
 
                   {item?.pendingRoleRequest?.status === 'PENDING' && (
-                    <Chip
-                      size="sm"
-                      variant="flat"
-                      color="warning"
-                      className={maroonTheme.chipPill}
-                    >
-                      Pending → {item.pendingRoleRequest.toRole}
-                    </Chip>
+                    <>
+                      <Chip
+                        size="sm"
+                        variant="flat"
+                        color="warning"
+                        className={maroonTheme.chipPill}
+                      >
+                        Pending → {item.pendingRoleRequest.toRole}
+                      </Chip>
+
+                      {item.pendingRoleRequest.requestedMhpssLevel ? (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color="warning"
+                          className={maroonTheme.chipPill}
+                        >
+                          MHPSS → {item.pendingRoleRequest.requestedMhpssLevel}
+                        </Chip>
+                      ) : null}
+                    </>
                   )}
                 </div>
               )}
             </TableCell>
           );
 
-        case 'competency':
-          return (
-            <TableCell
-              className={`text-center ${
-                editingRow === item.id
-                  ? 'cursor-pointer rounded-xl bg-white/70 hover:bg-white/85 border border-white/60 transition-all duration-200'
-                  : ''
-              }`}
-              onClick={() => {
-                if (editingRow === item.id) setEditingField('competency');
-              }}
-            >
-              {editingRow === item.id && editingField === 'competency' ? (
-                <Dropdown>
-                  <DropdownTrigger>
-                    <Button
-                      variant="light"
-                      disabled={isUpdating}
-                      size="sm"
-                      className="bg-white/60 backdrop-blur-sm border border-white/60 shadow-sm"
+                case 'mhpssLevel': {
+                  const mhpssValue =
+                    editingRow === item.id && editingField === 'mhpssLevel'
+                      ? editedMhpssLevel[item.id] !== undefined
+                        ? editedMhpssLevel[item.id]
+                        : item.mhpssLevel ?? null
+                      : item.mhpssLevel ?? null;
+
+                  return (
+                    <TableCell
+                      className={`text-center ${
+                        editingRow === item.id
+                          ? 'cursor-pointer rounded-xl bg-white/70 hover:bg-white/85 border border-white/60 transition-all duration-200'
+                          : ''
+                      }`}
+                      onClick={() => {
+                        if (editingRow === item.id) setEditingField('mhpssLevel');
+                      }}
                     >
-                      <Chip
-                        color={getCompetencyColor(competencyValue)}
-                        variant="flat"
-                        size="sm"
-                        startContent={<Award className="w-3 h-3" />}
-                        className={maroonTheme.chipPill}
-                      >
-                        {competencyValue ? `Level ${competencyValue}` : 'None'}
-                        {isUpdating && ' (Saving...)'}
-                      </Chip>
-                    </Button>
-                  </DropdownTrigger>
-                  <DropdownMenu
-                    disabledKeys={
-                      isUpdating
-                        ? competencyOptions.map((o) => String(o ?? 'null'))
-                        : []
-                    }
-                    onAction={(key) =>
-                      handleChange(item.id, key === 'null' ? null : Number(key))
-                    }
-                    className="bg-white/95 backdrop-blur-sm"
-                  >
-                    {competencyOptions.map((option) => (
-                      <DropdownItem
-                        key={String(option ?? 'null')}
-                        textValue={String(option ?? 'None')}
-                        startContent={<Award className="w-3 h-3" />}
-                        className="hover:bg-slate-100/80"
-                      >
-                        {option ? `Level ${option}` : 'None'}
-                      </DropdownItem>
-                    ))}
-                  </DropdownMenu>
-                </Dropdown>
-              ) : (
-                <Chip
-                  color={getCompetencyColor(item.competency)}
-                  variant="flat"
-                  size="sm"
-                  startContent={<Award className="w-3 h-3" />}
-                  className={maroonTheme.chipPill}
-                >
-                  {item.competency ? `Level ${item.competency}` : 'None'}
-                </Chip>
-              )}
-            </TableCell>
-          );
+                      {editingRow === item.id && editingField === 'mhpssLevel' ? (
+                        <Dropdown>
+                          <DropdownTrigger>
+                            <Button
+                              variant="light"
+                              disabled={isUpdating}
+                              size="sm"
+                              className="bg-white/60 backdrop-blur-sm border border-white/60 shadow-sm"
+                              startContent={<Award className="w-4 h-4 text-slate-700" />}
+                            >
+                              <Chip
+                                variant="flat"
+                                size="sm"
+                                className={maroonTheme.chipPill}
+                              >
+                                {mhpssValue
+                                  ? mhpssValue.replace('LEVEL_', 'Level ')
+                                  : 'None'}
+                                {isUpdating && ' (Saving...)'}
+                              </Chip>
+                            </Button>
+                          </DropdownTrigger>
+
+                          <DropdownMenu
+                            disabledKeys={isUpdating ? mhpssOptions.map(String) : []}
+                            onAction={(key) => {
+                              const value = String(key);
+                              handleMhpssLevelChange(
+                                item.id,
+                                value === 'NONE' ? null : (value as MhpssLevel)
+                              );
+                            }}
+                            className="bg-white/95 backdrop-blur-sm"
+                          >
+                            {mhpssOptions.map((option) => (
+                              <DropdownItem
+                                key={option}
+                                textValue={String(option)}
+                                className="hover:bg-slate-100/80"
+                              >
+                                {option === 'NONE'
+                                  ? 'None'
+                                  : String(option).replace('LEVEL_', 'Level ')}
+                              </DropdownItem>
+                            ))}
+                          </DropdownMenu>
+                        </Dropdown>
+                      ) : (
+                        <Chip
+                          variant="flat"
+                          size="sm"
+                          startContent={<Award className="w-3 h-3" />}
+                          className={maroonTheme.chipPill}
+                        >
+                          {item.mhpssLevel
+                            ? item.mhpssLevel.replace('LEVEL_', 'Level ')
+                            : 'Not Assessed'}
+                        </Chip>
+                      )}
+                    </TableCell>
+                  );
+                }
+
+        case 'region':
+        return (
+          <TableCell className="w-[120px] text-center">
+            <span className="text-sm text-slate-700 whitespace-nowrap">
+              {item.region || 'No region'}
+            </span>
+          </TableCell>
+        );
 
         case 'actions':
           return (
@@ -623,7 +679,7 @@ const UserTable = () => {
                     variant="light"
                     size="sm"
                     className={`${maroonTheme.actionBtnBase} ${maroonTheme.actionDelete}`}
-                    onPress={() => handleDeleteUser(item.id)}
+                    onPress={() => openDeleteConfirm(item.id, item.name)}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -656,16 +712,16 @@ const UserTable = () => {
           );
       }
     },
-    [
-      editingRow,
-      editedCompetency,
-      isUpdating,
-      handleChange,
-      editingField,
-      editedRole,
-      handleRoleChange,
-      handleDeleteUser,
-    ]
+      [
+        editingRow,
+        isUpdating,
+        editingField,
+        editedRole,
+        editedMhpssLevel,
+        handleRoleChange,
+        handleMhpssLevelChange,
+        openDeleteConfirm,
+      ]
   );
 
   return (
@@ -685,6 +741,14 @@ const UserTable = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <Button
+                  isIconOnly
+                  size="lg"
+                  onPress={() => router.push('/dashboard')}
+                  className="bg-white/15 text-white border border-white/25 backdrop-blur-sm shadow-sm hover:bg-white/25 transition-all rounded-2xl"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
                 {/* ✅ Total Users pill (gradient) */}
                 <div
                   className={`flex items-center gap-2 rounded-2xl px-4 py-3 ${maroonTheme.statPill}`}
@@ -899,7 +963,13 @@ const UserTable = () => {
                     {(column) => (
                       <TableColumn
                         key={column.key}
-                        className="text-center text-sm sm:text-md"
+                        className={`text-center text-sm sm:text-md ${
+                          column.key === 'email'
+                            ? 'w-[240px]'
+                            : column.key === 'region'
+                            ? 'w-[120px]'
+                            : ''
+                        }`}
                       >
                         {column.name}
                       </TableColumn>
@@ -1017,6 +1087,7 @@ const UserTable = () => {
                               >
                                 From: {r.fromRole}
                               </Chip>
+
                               <Chip
                                 size="sm"
                                 variant="flat"
@@ -1024,6 +1095,16 @@ const UserTable = () => {
                               >
                                 To: {r.toRole}
                               </Chip>
+
+                              {r.requestedMhpssLevel ? (
+                                <Chip
+                                  size="sm"
+                                  variant="flat"
+                                  className="bg-amber-100 text-amber-700 border border-amber-200"
+                                >
+                                  MHPSS: {r.requestedMhpssLevel}
+                                </Chip>
+                              ) : null}
                             </div>
 
                             <div className="text-xs text-slate-500 mt-2">
@@ -1059,6 +1140,62 @@ const UserTable = () => {
             )}
           </CardBody>
         </Card>
+
+        <Modal
+          isOpen={deleteConfirmOpen}
+          onClose={() => {
+            if (isDeleting) return;
+            setDeleteConfirmOpen(false);
+            setSelectedUserId(null);
+            setSelectedUserName(null);
+          }}
+        >
+          <ModalContent>
+            <ModalHeader className="font-bold">
+              Confirm Action
+            </ModalHeader>
+
+            <ModalBody>
+              <div className="space-y-1 text-slate-700">
+                <p>
+                  Are you sure you want to{" "}
+                  <span className="font-bold text-[#7B122F]">DELETE</span>{" "}
+                  this user:
+                </p>
+
+                <p className="font-semibold text-slate-900">
+                  {selectedUserName || 'Unknown User'}
+                </p>
+              </div>
+
+              <p className="text-sm text-slate-500">
+                This action cannot be undone.
+              </p>
+            </ModalBody>
+
+            <ModalFooter>
+              <Button
+                variant="light"
+                onPress={() => {
+                  setDeleteConfirmOpen(false);
+                  setSelectedUserId(null);
+                  setSelectedUserName(null);
+                }}
+                isDisabled={isDeleting}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="bg-[#7B122F] text-white"
+                onPress={handleDeleteUser}
+                isLoading={isDeleting}
+              >
+                Confirm
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         <MHPSSLevel isOpen={isOpen} onOpenChange={onOpenChange} />
       </div>

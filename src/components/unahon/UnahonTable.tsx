@@ -53,8 +53,8 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
             handleChecklistChange(rowNumber, column);
 
             if (column === 0 && isSelected) {
-                onOpen();
                 selectedRow.current = rowNumber;
+                onOpen();
             }
         },
         [handleChecklistChange, onOpen]

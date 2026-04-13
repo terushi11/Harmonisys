@@ -31,5 +31,6 @@ export async function GET(request: Request) {
         );
     }
 
+        console.log('UNAHON FORMS API:', JSON.stringify(forms, null, 2));
     return NextResponse.json(forms);
 }

@@ -111,18 +111,6 @@ const FAQ: React.FC<FAQProps> = ({ data }) => {
             className={`min-h-screen ${redasTheme.background}`}
         >
             <div className="max-w-4xl mx-auto px-4 py-12">
-                {/* Go Back Button */}
-                <div className="mb-6">
-                    <Button
-                        as={Link}
-                        href="/overview/redas"
-                        variant="light"
-                        startContent={<ArrowLeft className="w-4 h-4" />}
-                        className={`bg-white/70 backdrop-blur-sm border ${redasTheme.accentColor} hover:bg-gradient-to-r hover:${redasTheme.primaryGradient} hover:text-white transition-all duration-300 font-medium shadow-sm hover:shadow-md`}
-                    >
-                        Go Back
-                    </Button>
-                </div>
                 {/* Header Section */}
                 <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
                     <CardHeader className="text-center py-8 justify-center">

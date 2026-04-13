@@ -430,26 +430,28 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
         <div className="bg-gray-50 min-h-screen p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <div className="flex items-center gap-4 mb-4">
+                <div className="mb-8 pt-6">
+                    <div className="mb-2 flex items-start justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-3xl font-bold text-gray-900">
+                                    Team: {teamDeployed} - Incident Analysis
+                                </h1>
+                            </div>
+                            <p className="mt-2 text-gray-600">
+                                Aggregated incident data and risk analysis
+                            </p>
+                        </div>
+
                         <Button
-                            variant="flat"
-                            color="primary"
+                            variant="solid"
+                            className="bg-rose-800 text-white hover:bg-rose-900 shrink-0"
                             startContent={<ArrowLeft className="w-4 h-4" />}
                             onPress={() => router.back()}
                         >
                             Back to MiSalud Dashboard
                         </Button>
                     </div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <AlertTriangle className="w-8 h-8 text-red-600" />
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Team {teamDeployed} - Incident Analysis
-                        </h1>
-                    </div>
-                    <p className="text-gray-600">
-                        Aggregated incident data and risk analysis
-                    </p>
                 </div>
 
                 {/* Stats Cards */}
@@ -534,34 +536,47 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                 )}
 
                 {/* Risk Score Progress */}
-                <Card className="mb-8">
+                <Card className="mb-8 border border-red-100 shadow-sm">
                     <CardHeader>
                         <div className="flex items-center gap-2">
-                            <Shield className="w-5 h-5 text-gray-600" />
+                            <Shield className="w-5 h-5 text-red-600" />
                             <h2 className="text-xl font-semibold text-gray-900">
                                 Overall Risk Assessment
                             </h2>
                         </div>
                     </CardHeader>
-                    <CardBody>
-                        <div className="space-y-4">
-                            <Progress
-                                size="lg"
-                                value={riskScore.score}
-                                color={riskScore.color as colorTypes}
-                                showValueLabel={true}
-                                className="max-w-md"
-                                aria-labelledby="progress"
-                                aria-valuenow={riskScore.score}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                            />
-                            <p className="text-sm text-gray-600 flex items-center gap-2">
-                                <BarChart3 className="w-4 h-4" />
-                                Based on {teamIncidents.length} incidents with
-                                weighted severity analysis
-                            </p>
+
+                    <CardBody className="px-6 pb-6 pt-2">
+                        <div className="w-full space-y-3">
+
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-600">
+                                Risk Score
+                            </span>
+
+                            <span className="text-2xl font-bold text-red-600">
+                                {riskScore.score.toFixed(0)}%
+                            </span>
                         </div>
+
+                        <Progress
+                            size="lg"
+                            value={riskScore.score}
+                            color={riskScore.color as colorTypes}
+                            showValueLabel={false}
+                            className="w-full"
+                            aria-labelledby="progress"
+                            aria-valuenow={riskScore.score}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                        />
+
+                        <p className="text-sm text-gray-600 flex items-center gap-2 pt-1">
+                            <BarChart3 className="w-4 h-4 text-red-500" />
+                            Based on {teamIncidents.length} incidents with weighted severity analysis
+                        </p>
+
+                    </div>
                     </CardBody>
                 </Card>
 
@@ -572,14 +587,14 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                         <Card>
                             <CardHeader>
                                 <div className="flex items-center gap-2">
-                                    <AlertCircle className="w-5 h-5 text-gray-600" />
+                                    <AlertCircle className="w-5 h-5 text-red-600" />
                                     <h2 className="text-xl font-semibold text-gray-900">
                                         Severity Distribution
                                     </h2>
                                 </div>
                             </CardHeader>
                             <CardBody>
-                                <div className="w-full h-[300px]">
+                                <div className="w-full h-[260px]">
                                     <ResponsiveContainer
                                         width="100%"
                                         height="100%"
@@ -624,14 +639,14 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                         <Card>
                             <CardHeader>
                                 <div className="flex items-center gap-2">
-                                    <Target className="w-5 h-5 text-gray-600" />
+                                    <Target className="w-5 h-5 text-red-600" />
                                     <h2 className="text-xl font-semibold text-gray-900">
                                         Incident Categories
                                     </h2>
                                 </div>
                             </CardHeader>
                             <CardBody>
-                                <div className="w-full h-[300px]">
+                                <div className="w-full h-[260px]">
                                     <ResponsiveContainer
                                         width="100%"
                                         height="100%"
@@ -639,10 +654,10 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                                         <BarChart
                                             data={categoryChartData}
                                             margin={{
-                                                top: 20,
-                                                right: 30,
-                                                left: 20,
-                                                bottom: 60,
+                                                top: 10,
+                                                right: 20,
+                                                left: 10,
+                                                bottom: 50,
                                             }}
                                         >
                                             <CartesianGrid
@@ -675,7 +690,7 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                         <Card className="lg:col-span-2">
                             <CardHeader>
                                 <div className="flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5 text-gray-600" />
+                                    <TrendingUp className="w-5 h-5 text-red-600" />
                                     <h2 className="text-xl font-semibold text-gray-900">
                                         Incident Timeline
                                     </h2>
@@ -754,14 +769,14 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                         <Card className="lg:col-span-2">
                             <CardHeader>
                                 <div className="flex items-center gap-2">
-                                    <MapPin className="w-5 h-5 text-gray-600" />
+                                    <MapPin className="w-5 h-5 text-red-600" />
                                     <h2 className="text-xl font-semibold text-gray-900">
                                         Top Incident Locations
                                     </h2>
                                 </div>
                             </CardHeader>
                             <CardBody>
-                                <div className="w-full h-[300px]">
+                                <div className="w-full h-[260px]">
                                     <ResponsiveContainer
                                         width="100%"
                                         height="100%"
@@ -769,10 +784,10 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                                         <BarChart
                                             data={locationChartData}
                                             margin={{
-                                                top: 20,
-                                                right: 30,
-                                                left: 20,
-                                                bottom: 80,
+                                                top: 10,
+                                                right: 20,
+                                                left: 10,
+                                                bottom: 70,
                                             }}
                                         >
                                             <CartesianGrid

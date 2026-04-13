@@ -26,6 +26,28 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
     const [isButtonDisabled, setIsButtonDisabled] = useState(true);
     const [relevantIndices, setRelevantIndices] = useState<number[]>([]);
 
+    const competencyMap: Record<string, number> = {
+        LEVEL_1: 1,
+        LEVEL_2: 2,
+        LEVEL_3: 3,
+        LEVEL_4: 4,
+    };
+
+    const normalizedCompetency: number | undefined =
+    competency == null
+        ? undefined
+        : typeof competency === 'string'
+        ? competencyMap[competency] ?? Number(competency)
+        : competency;
+
+    console.log('UnahonModal competency:', competency);
+    console.log('UnahonModal normalizedCompetency:', normalizedCompetency);
+    console.log('UnahonModal rowNumber:', rowNumber);
+    console.log(
+        'UnahonModal selected intervention:',
+        unahonSections[index].interventions[rowNumber]
+    );
+
     useEffect(() => {
         if (isOpen) {
             const initialCheckboxes = unahonSections[index].interventions[
@@ -37,9 +59,10 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                 rowNumber
             ].checklist
                 .map((_, i) => {
-                    return unahonSections[index].interventions[
-                        rowNumber
-                    ].competencies[i].includes(competency)
+                    return normalizedCompetency !== undefined &&
+                        unahonSections[index].interventions[rowNumber].competencies[
+                            i
+                        ].includes(normalizedCompetency)
                         ? i
                         : -1;
                 })
@@ -48,7 +71,7 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
             setRelevantIndices(relevantIndexList);
             setIsButtonDisabled(true);
         }
-    }, [isOpen, index, rowNumber, competency]);
+    }, [isOpen, index, rowNumber, normalizedCompetency]);
 
     useEffect(() => {
         const relevantChecked = relevantIndices.every(
@@ -84,11 +107,11 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                 isKeyboardDismissDisabled={true}
                 classNames={{
                     backdrop:
-                        'bg-gradient-to-t from-zinc-900 to-zinc-900/10 backdrop-opacity-20',
-                    base: 'border-[#292f46] bg-gradient-to-br from-white via-white to-slate-50',
-                    header: 'border-b-[1px] border-slate-200',
+                        'bg-gradient-to-t from-black/60 to-black/20 backdrop-blur-sm',
+                    base: 'border border-[#7B122F]/20 bg-white/95 backdrop-blur-md shadow-2xl',
+                    header: 'border-b border-[#7B122F]/15',
                     body: 'py-6',
-                    footer: 'border-t-[1px] border-slate-200',
+                    footer: 'border-t border-[#7B122F]/15',
                 }}
             >
                 <ModalContent>
@@ -96,7 +119,7 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                         <>
                             <ModalHeader className="flex flex-col gap-1">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg shadow-lg">
+                                    <div className="p-2 bg-gradient-to-r from-[#7B122F] to-[#A3153D] rounded-lg shadow-lg">
                                         <svg
                                             className="w-5 h-5 text-white"
                                             fill="none"
@@ -112,7 +135,7 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                                         </svg>
                                     </div>
                                     <div>
-                                        <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-800 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
+                                        <h2 className="text-2xl font-bold bg-gradient-to-r from-[#7B122F] via-[#8E1A3B] to-[#B91C1C] bg-clip-text text-transparent">
                                             Intervention Checklist
                                         </h2>
                                         <p className="text-slate-600 text-sm font-medium">
@@ -125,17 +148,14 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                                 <div className="space-y-4">
                                     {(() => {
                                         const hasMatchingInterventions =
-                                            unahonSections[index].interventions[
-                                                rowNumber
-                                            ].checklist.some((_, i) =>
-                                                unahonSections[
-                                                    index
-                                                ].interventions[
-                                                    rowNumber
-                                                ].competencies[i].includes(
-                                                    competency
-                                                )
-                                            );
+                                        normalizedCompetency !== undefined &&
+                                        unahonSections[index].interventions[
+                                            rowNumber
+                                        ].checklist.some((_, i) =>
+                                            unahonSections[index].interventions[rowNumber].competencies[
+                                                i
+                                            ].includes(normalizedCompetency)
+                                        );
 
                                         if (!hasMatchingInterventions) {
                                             return (
@@ -153,13 +173,10 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                                         ].checklist.map(
                                             (intervention, checklist_index) => {
                                                 if (
-                                                    unahonSections[
-                                                        index
-                                                    ].interventions[
-                                                        rowNumber
-                                                    ].competencies[
+                                                    normalizedCompetency !== undefined &&
+                                                    unahonSections[index].interventions[rowNumber].competencies[
                                                         checklist_index
-                                                    ].includes(competency)
+                                                    ].includes(normalizedCompetency)
                                                 ) {
                                                     return (
                                                         <div
@@ -206,7 +223,7 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                                     color="danger"
                                     variant="light"
                                     onPress={onClose}
-                                    className="font-semibold hover:bg-red-50"
+                                    className="font-semibold text-[#7B122F] hover:bg-[#7B122F]/10"
                                 >
                                     Cancel
                                 </Button>
@@ -214,24 +231,21 @@ const UnahonModal: React.FC<UnahonModalProps> = ({
                                     onPress={onDone}
                                     isDisabled={(() => {
                                         const hasMatchingInterventions =
-                                            unahonSections[index].interventions[
-                                                rowNumber
-                                            ].checklist.some((_, i) =>
-                                                unahonSections[
-                                                    index
-                                                ].interventions[
-                                                    rowNumber
-                                                ].competencies[i].includes(
-                                                    competency
-                                                )
-                                            );
+                                        normalizedCompetency !== undefined &&
+                                        unahonSections[index].interventions[
+                                            rowNumber
+                                        ].checklist.some((_, i) =>
+                                            unahonSections[index].interventions[rowNumber].competencies[
+                                                i
+                                            ].includes(normalizedCompetency)
+                                        );
 
                                         return (
-                                            hasMatchingInterventions &&
+                                            !hasMatchingInterventions ||
                                             isButtonDisabled
                                         );
                                     })()}
-                                    className="font-semibold bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                                    className="font-semibold bg-gradient-to-r from-[#7B122F] to-[#A3153D] text-white shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                                 >
                                     Complete Intervention
                                 </Button>

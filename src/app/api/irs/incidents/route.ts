@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, IncidentCategory, SeverityLevel } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { IncidentCategory, SeverityLevel } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
 
 // Helper function to convert form category to enum value
 function convertCategoryToEnum(category: string): IncidentCategory {
@@ -28,6 +28,15 @@ function convertSeverityToEnum(severity: string): SeverityLevel {
 }
 
 export async function POST(request: NextRequest) {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+        return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 401 }
+        );
+    }
+
     try {
         const formData = await request.formData();
 
@@ -97,6 +106,7 @@ export async function POST(request: NextRequest) {
         // Create incident in database
         const incident = await prisma.incident.create({
             data: {
+                userId: session.user.id,
                 location,
                 date: new Date(date),
                 summary,

@@ -24,7 +24,7 @@ export interface UnahonTableProps {
     index: number; // or the appropriate type
     checklist: Checklist;
     handleChecklistChange: (rowNumber: number, column: number) => void;
-    competency: number;
+    competency: number | string | null;
     goToConfidentialPage: () => void;
 }
 
@@ -32,7 +32,7 @@ export interface UnahonModalProps {
     index: number;
     rowNumber: number;
     isOpen: boolean;
-    competency: number;
+    competency: number | string | null;
     onOpenChange: () => void;
     onDone: () => void;
     onCancel: () => void;
@@ -70,6 +70,7 @@ export interface UnahonGuideProps {
 }
 
 export interface FormRow {
+    id: string;
     key: string;
     'client-id': string;
     'responder-name': string;
@@ -81,6 +82,7 @@ export interface FormRow {
 }
 
 export interface UnahonFormEntry {
+    id: string;
     confidentialForm: ConfidentialForm;
     responder: string;
     checklist: Checklist;

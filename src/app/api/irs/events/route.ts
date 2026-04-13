@@ -1,5 +1,5 @@
 import { IRSdb } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { NextResponse } from 'next/server';
 
 interface Location {
@@ -47,39 +47,39 @@ export async function GET() {
                 let scenario;
 
                 if (eventData['categoryID']) {
-                    const categoryRef = collection(IRSdb, 'event-categories');
-                    const categorySnapshot = await getDocs(categoryRef);
+                const categoryDocRef = doc(IRSdb, 'event-categories', String(eventData['categoryID']));
+                const categorySnap = await getDoc(categoryDocRef);
 
-                    if (!categorySnapshot.empty) {
-                        category = {
-                            id: categorySnapshot.docs.at(0)?.id,
-                            ...categorySnapshot.docs.at(0)?.data(),
-                        };
-                    }
+                if (categorySnap.exists()) {
+                    category = {
+                    id: categorySnap.id,
+                    ...categorySnap.data(),
+                    };
+                }
                 }
 
                 if (eventData['locationID']) {
-                    const locationRef = collection(IRSdb, 'event-locations');
-                    const locationSnapshot = await getDocs(locationRef);
+                const locationDocRef = doc(IRSdb, 'event-locations', String(eventData['locationID']));
+                const locationSnap = await getDoc(locationDocRef);
 
-                    if (!locationSnapshot.empty) {
-                        location = {
-                            id: locationSnapshot.docs.at(0)?.id,
-                            ...locationSnapshot.docs.at(0)?.data(),
-                        };
-                    }
+                if (locationSnap.exists()) {
+                    location = {
+                    id: locationSnap.id,
+                    ...locationSnap.data(),
+                    };
+                }
                 }
 
                 if (eventData['scenarioID']) {
-                    const scenarioRef = collection(IRSdb, 'event-scenarios');
-                    const scenarioSnapshot = await getDocs(scenarioRef);
+                const scenarioDocRef = doc(IRSdb, 'event-scenarios', String(eventData['scenarioID']));
+                const scenarioSnap = await getDoc(scenarioDocRef);
 
-                    if (!scenarioSnapshot.empty) {
-                        scenario = {
-                            id: scenarioSnapshot.docs.at(0)?.id,
-                            ...scenarioSnapshot.docs.at(0)?.data(),
-                        };
-                    }
+                if (scenarioSnap.exists()) {
+                    scenario = {
+                    id: scenarioSnap.id,
+                    ...scenarioSnap.data(),
+                    };
+                }
                 }
 
                 const data = {

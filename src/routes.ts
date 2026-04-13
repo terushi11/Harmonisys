@@ -13,4 +13,8 @@ export const privateRoutes = [
     '/irs/event',
     '/irs/event/:eventName',
     '/redas/appointment',
+
+    // ✅ IRS Admin Incident Management
+  '/irs/incidents/manage',
+  '/irs/incidents/manage/:id',
 ];

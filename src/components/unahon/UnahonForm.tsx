@@ -2,7 +2,7 @@
 
 import { Button, useDisclosure, Card, CardBody, Skeleton } from '@heroui/react';
 import UnahonTable from './UnahonTable';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { unahonSections } from '@/constants';
 import { AssessmentType } from '@prisma/client';
 import UnahonConfidential from './UnahonConfidential';
@@ -43,6 +43,8 @@ const Unahon: React.FC<UnahonProps> = ({
 
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const assessmentTopRef = useRef<HTMLDivElement | null>(null);
+    const hasMountedRef = useRef(false);
 
     const goToPreviousSection = useCallback(() => {
         if (currentIndex === unahonSections.length) {
@@ -77,9 +79,15 @@ const Unahon: React.FC<UnahonProps> = ({
         }
     };
 
-    const handleSubmit = async () => {
+        const handleSubmit = async () => {
         try {
             await saveUnahonForm({ ...confidentialForm, checklist });
+
+            if (isReassessment) {
+                await fetch('/api/unahon/reassess/complete', {
+                    method: 'PATCH',
+                });
+            }
         } catch {
             console.error('Error saving Unahon form');
         } finally {
@@ -132,6 +140,20 @@ const Unahon: React.FC<UnahonProps> = ({
         });
     }, [unahonChecklist, clientConfidentialForm]);
 
+    useEffect(() => {
+        if (isLoading) return;
+
+        if (!hasMountedRef.current) {
+            hasMountedRef.current = true;
+            return;
+        }
+
+        assessmentTopRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+        });
+    }, [currentIndex, isLoading]);
+
     const handleChecklistChange = (rowNumber: number, column: number) => {
         setChecklist((prev) => ({
             ...prev,
@@ -172,11 +194,10 @@ const Unahon: React.FC<UnahonProps> = ({
     }, [currentIndex, isViewOnly]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
-            <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="min-h-screen bg-white">
+            <div className="container mx-auto px-4 lg:px-6 py-8 max-w-[1400px]">
                 {/* Header Section */}
-                <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-                    <CardBody className="p-6">
+                    <div className="mb-2 py-4 lg:py-6">
                         {isViewOnly && (
                             <div className="mb-4 p-4 bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl">
                                 <p className="text-xl font-bold text-red-600 text-center flex items-center justify-center gap-2">
@@ -226,89 +247,106 @@ const Unahon: React.FC<UnahonProps> = ({
                             </div>
                         )}
 
-                        <div className="text-center space-y-4">
-                            <div className="flex justify-center items-center gap-2 mb-4">
-                                <h1 className="text-5xl lg:text-6xl px-2 font-black bg-gradient-to-r from-emerald-800 via-teal-700 to-cyan-800 bg-clip-text text-transparent">
-                                    UN<span className="italic">AHON</span>
-                                </h1>
+                        <div className="text-center">
+                            <div className="max-w-[1320px] mx-auto">
+                                <div className="flex justify-center items-center mb-3 py-1">
+                                    <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight text-red-700 leading-[1.15] pb-1">
+                                        UN<span className="italic">AHON</span>
+                                    </h1>
+                                </div>
+
+                               <h2 className="text-lg sm:text-xl lg:text-[2rem] font-bold text-slate-800 leading-tight tracking-tight max-w-6xl mx-auto mt-2 whitespace-nowrap">
+                                    BEHAVIOR OBSERVATION CHECKLIST FOR RESOURCE PRIORITIZATION
+                                </h2>
+
+                                <div className="mt-10 max-w-[1320px] mx-auto space-y-5 text-slate-700">
+                                <Card className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-sm rounded-2xl">
+                                    <CardBody className="p-4 sm:p-5 lg:p-6 text-left">
+                                        <div className="flex items-center gap-4">
+                                            <div className="hidden sm:flex h-12 w-12 flex-shrink-0 items-center justify-center self-center rounded-xl bg-blue-100 text-blue-700 shadow-sm">
+                                                <svg
+                                                    className="w-5 h-5"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                                    />
+                                                </svg>
+                                            </div>
+
+                                            <div className="flex-1 space-y-2">
+                                                <p className="text-sm sm:text-base leading-relaxed text-slate-800">
+                                                    Isa itong gamit upang mahanap ang pinakanangangailangan ng serbisyo sa mga evacuation camps.{' '}
+                                                    <span className="font-bold text-red-600 underline decoration-red-300 underline-offset-2">
+                                                        Hindi ito gagamiting pangtukoy ng mga sakit-pangkaisipan
+                                                    </span>.
+                                                </p>
+
+                                                <p className="text-xs sm:text-sm italic leading-relaxed text-slate-600">
+                                                    (This is a tool that seeks to prioritize resources in cases wherein there is a great demand that exceeds current resources at evacuation camps.{' '}
+                                                    <span className="font-bold underline underline-offset-2">
+                                                        This is not a diagnostic tool
+                                                    </span>.)
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardBody>
+                                </Card>
+
+                                <Card className="w-full bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 shadow-sm rounded-2xl">
+                                    <CardBody className="p-4 sm:p-5 lg:p-6 text-left">
+                                        <div className="flex items-center gap-4">
+                                            <div className="hidden sm:flex h-12 w-12 flex-shrink-0 items-center justify-center self-center rounded-xl bg-amber-100 text-amber-700 shadow-sm">
+                                                <svg
+                                                    className="w-5 h-5"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                                    />
+                                                </svg>
+                                            </div>
+
+                                            <div className="flex-1 space-y-2">
+                                                <p className="text-sm sm:text-base leading-relaxed text-slate-800">
+                                                    Ibatay ang sagot sa mga naobserbahang kilos.{' '}
+                                                    <span className="font-bold text-red-600 underline decoration-red-300 underline-offset-2">
+                                                        Huwag tuwirang itanong ang mga ito sa mga Internally Displaced Persons o IDP
+                                                    </span>. Sagutan ang mga aytem nang sunod-sunod mula sa itaas hanggang sa ibaba. Kung OO ang sagot sa isa sa mga aytem, HUMINTO at isagawa ang interbensyon.
+                                                </p>
+
+                                                <p className="text-xs sm:text-sm italic leading-relaxed text-slate-600">
+                                                    (Base the answers on observable behaviors.{' '}
+                                                    <span className="font-bold underline underline-offset-2">
+                                                        Do not directly ask these questions to the internally displaced person (IDP)
+                                                    </span>. Answer the items in order from top to bottom. If you answered YES to any of the items, STOP and do the intervention.)
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardBody>
+                                </Card>
                             </div>
-
-                            <h2 className="text-2xl lg:text-3xl font-bold text-slate-800 mb-4">
-                                BEHAVIOR OBSERVATION CHECKLIST FOR RESOURCE
-                                PRIORITIZATION
-                            </h2>
-
-                            <div className="max-w-4xl mx-auto space-y-4 text-slate-700">
-                                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
-                                    <CardBody className="p-4">
-                                        <p className="text-lg leading-relaxed">
-                                            Isa itong gamit upang mahanap ang
-                                            pinakanangangailangan ng serbisyo sa
-                                            mga evacuation camps.{' '}
-                                            <span className="font-bold text-red-600 underline decoration-red-300">
-                                                Hindi ito gagamiting pangtukoy
-                                                ng mga sakit-pangkaisipan
-                                            </span>
-                                            .
-                                        </p>
-                                        <p className="text-base italic text-slate-600 mt-2">
-                                            (This is a tool that seeks to
-                                            prioritize resources in cases
-                                            wherein there is a great demand that
-                                            exceeds current resources at
-                                            evacuation camps.{' '}
-                                            <span className="font-bold underline">
-                                                This is not a diagnostic tool
-                                            </span>
-                                            .)
-                                        </p>
-                                    </CardBody>
-                                </Card>
-
-                                <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
-                                    <CardBody className="p-4">
-                                        <p className="text-lg leading-relaxed">
-                                            Ibatay ang sagot sa mga
-                                            naobserbahang kilos.{' '}
-                                            <span className="font-bold text-red-600 underline decoration-red-300">
-                                                Huwag tuwirang itanong ang mga
-                                                ito sa mga Internally Displaced
-                                                Persons o IDP
-                                            </span>
-                                            . Sagutan ang mga aytem nang
-                                            sunod-sunod mula sa itaas hanggang
-                                            sa ibaba. Kung OO ang sagot sa isa
-                                            sa mga aytem, HUMINTO at isagawa ang
-                                            interbensyon.
-                                        </p>
-                                        <p className="text-base italic text-slate-600 mt-2">
-                                            (Base the answers on observable
-                                            behaviors.{' '}
-                                            <span className="font-bold underline">
-                                                Do not directly ask these
-                                                questions to the internally
-                                                displaced person (IDP)
-                                            </span>
-                                            . Answer the items in order from top
-                                            to bottom. If you answered YES to
-                                            any of the items, STOP and do the
-                                            intervention.)
-                                        </p>
-                                    </CardBody>
-                                </Card>
                             </div>
                         </div>
-                    </CardBody>
-                </Card>
+                    </div>
 
                 {/* Controls Section */}
-                <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-                    <CardBody className="p-6">
-                        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-                            <div className="flex flex-col sm:flex-row gap-3">
+                    <div ref={assessmentTopRef} className="mb-4 px-2 mt-2">
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div className="flex flex-col sm:flex-row gap-3 lg:ml-3 mb-6 lg:mb-0">
                                 <Button
                                     onPress={onOpen}
-                                    className="font-semibold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                                    className="font-semibold bg-gradient-to-r from-red-700 to-red-800 text-white shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                                     size="lg"
                                     startContent={
                                         <svg
@@ -355,7 +393,7 @@ const Unahon: React.FC<UnahonProps> = ({
                             </div>
 
                             {/* Progress Indicator */}
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 lg:mr-3">
                                 <span className="text-sm font-medium text-slate-600">
                                     Progress:
                                 </span>
@@ -379,8 +417,7 @@ const Unahon: React.FC<UnahonProps> = ({
                                 </div>
                             </div>
                         </div>
-                    </CardBody>
-                </Card>
+                    </div>
 
                 {/* Main Content */}
                 <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
@@ -396,7 +433,7 @@ const Unahon: React.FC<UnahonProps> = ({
                                         handleChecklistChange={
                                             handleChecklistChange
                                         }
-                                        competency={session.user.competency!}
+                                        competency={session.user.mhpssLevel ?? session.user.competency ?? null}
                                         goToConfidentialPage={
                                             goToConfidentialPage
                                         }
@@ -469,14 +506,14 @@ const Unahon: React.FC<UnahonProps> = ({
                 </Card>
 
                 {/* Navigation Controls */}
-                <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-                    <CardBody className="p-6">
+                <Card className="mb-16 bg-transparent shadow-none border-none">
+                    <CardBody className="pt-2 pb-2 px-0 overflow-visible">
                         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                             {/* Exit Assessment Button - Leftmost */}
                             <Button
                                 onPress={handleExitAssessment}
                                 variant="bordered"
-                                className="font-semibold border-2 border-red-300 text-red-700 hover:bg-red-50 transition-all duration-300"
+                                className="font-semibold border-2 border-red-300 text-red-700 hover:bg-red-50 transition-all duration-300 mb-3 sm:mb-0"
                                 size="lg"
                                 startContent={
                                     <svg
@@ -527,10 +564,10 @@ const Unahon: React.FC<UnahonProps> = ({
                                         <Button
                                             isDisabled={isViewOnly}
                                             onPress={handleOpenConfirmModal}
-                                            className={`font-bold text-white shadow-lg hover:shadow-xl disabled:opacity-50 transition-all duration-300 hover:-translate-y-1 min-w-[140px] ${
+                                            className={`font-bold text-white shadow-xl hover:shadow-2xl disabled:opacity-50 transition-all duration-300 hover:-translate-y-1 min-w-[160px] ${
                                                 isReassessment
                                                     ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-                                                    : 'bg-gradient-to-r from-emerald-600 to-teal-600'
+                                                    : 'bg-gradient-to-r from-[#7B122F] to-[#A3153D] hover:from-[#6A0F28] hover:to-[#8E1A3D]'
                                             }`}
                                             size="lg"
                                         >
@@ -597,14 +634,28 @@ const Unahon: React.FC<UnahonProps> = ({
 
                 {/* Guide Section */}
                 {currentIndex !== unahonSections.length && (
-                    <div className="mb-8">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                            <div className="w-1 h-8 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
+                    <div className="mb-8 mt-6">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-red-600 text-white">
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                            </div>
                             Assessment Guidelines
                         </h2>
 
-                        <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-2xl transition-all duration-300">
-                            <CardBody className="p-8">
+                        <Card className="bg-transparent shadow-none border-none">
+                            <CardBody className="pt-2 pb-2 px-0 overflow-visible">
                                 <UnahonGuide page={currentIndex + 1} />
                             </CardBody>
                         </Card>

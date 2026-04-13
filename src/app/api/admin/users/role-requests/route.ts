@@ -3,13 +3,22 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { RequestStatus, UserType } from "@prisma/client";
+import { MhpssLevel, RequestStatus, UserType } from "@prisma/client";
+
+type PostBody = {
+  toRole?: UserType;
+  requestedMhpssLevel?: MhpssLevel;
+};
 
 export async function POST(req: Request) {
   try {
     const session = await auth();
+
     if (!session?.user?.id) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     if (session.user.role !== UserType.STANDARD) {
@@ -19,15 +28,57 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json().catch(() => null);
-    const toRole = body?.toRole as UserType | undefined;
+    const body = (await req.json().catch(() => null)) as PostBody | null;
+    const toRole = body?.toRole;
+    const requestedMhpssLevel = body?.requestedMhpssLevel;
 
     if (!toRole || (toRole !== UserType.RESPONDER && toRole !== UserType.ADMIN)) {
-      return NextResponse.json({ success: false, message: "Invalid target role." }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Invalid target role." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      requestedMhpssLevel &&
+      ![
+        MhpssLevel.LEVEL_1,
+        MhpssLevel.LEVEL_2,
+        MhpssLevel.LEVEL_3,
+        MhpssLevel.LEVEL_4,
+      ].includes(requestedMhpssLevel)
+    ) {
+      return NextResponse.json(
+        { success: false, message: "Invalid requested MHPSS level." },
+        { status: 400 }
+      );
+    }
+
+    if (toRole === UserType.RESPONDER && !requestedMhpssLevel) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Requested MHPSS level is required for responder requests.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (toRole === UserType.ADMIN && requestedMhpssLevel) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "MHPSS level should only be provided for responder requests.",
+        },
+        { status: 400 }
+      );
     }
 
     const existing = await prisma.roleChangeRequest.findFirst({
-      where: { userId: session.user.id, status: RequestStatus.PENDING },
+      where: {
+        userId: session.user.id,
+        status: RequestStatus.PENDING,
+      },
       select: { id: true },
     });
 
@@ -43,6 +94,8 @@ export async function POST(req: Request) {
         userId: session.user.id,
         fromRole: session.user.role as UserType,
         toRole,
+        requestedMhpssLevel:
+          toRole === UserType.RESPONDER ? requestedMhpssLevel : null,
         status: RequestStatus.PENDING,
       },
       select: {
@@ -50,6 +103,7 @@ export async function POST(req: Request) {
         userId: true,
         fromRole: true,
         toRole: true,
+        requestedMhpssLevel: true,
         status: true,
         createdAt: true,
       },
@@ -68,12 +122,19 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     const session = await auth();
+
     if (!session?.user?.id) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     if (session.user.role !== UserType.ADMIN) {
-      return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+      return NextResponse.json(
+        { success: false, message: "Forbidden" },
+        { status: 403 }
+      );
     }
 
     const requests = await prisma.roleChangeRequest.findMany({
@@ -87,6 +148,7 @@ export async function GET() {
             email: true,
             role: true,
             competency: true,
+            mhpssLevel: true,
             createdAt: true,
           },
         },

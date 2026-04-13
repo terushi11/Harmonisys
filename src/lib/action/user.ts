@@ -2,16 +2,41 @@
 
 import { prisma } from '@/lib/prisma';
 import { signIn, signOut } from '@/lib/auth';
+import { AuthError } from 'next-auth';
 import { revalidatePath } from 'next/cache';
-import { UserType } from '@prisma/client';
+import { MhpssLevel, UserType } from '@prisma/client';
 
 export const handleGoogleLogin = async () => {
     await signIn('google', { redirectTo: '/' });
     revalidatePath('/');
 };
 
+export const handleCredentialsLogin = async (email: string, password: string) => {
+    try {
+        await signIn('credentials', {
+            email,
+            password,
+            redirect: false,
+        });
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case 'CredentialsSignin':
+                    return { success: false, message: 'Invalid email or password.' };
+                default:
+                    return { success: false, message: 'Something went wrong during login.' };
+            }
+        }
+
+        return { success: false, message: 'Something went wrong during login.' };
+    }
+};
+
 export const handleSignOut = async () => {
-    await signOut();
+    await signOut({ redirectTo: '/' });
 };
 
 export const getUserById = async (id: string) => {
@@ -46,10 +71,11 @@ export const getAllUsers = async (page = 1, limit = 10) => {
         name: true,
         email: true,
         role: true,
-        competency: true,
+        mhpssLevel: true,
+        gender: true,   
+        region: true,
         createdAt: true,
 
-        // latest pending role request (if any)
         roleChangeRequests: {
           where: { status: "PENDING" },
           orderBy: { createdAt: "desc" },
@@ -58,12 +84,12 @@ export const getAllUsers = async (page = 1, limit = 10) => {
             id: true,
             fromRole: true,
             toRole: true,
+            requestedMhpssLevel: true,
             status: true,
             createdAt: true,
           },
         },
 
-        // keep these excluded
         updatedAt: false,
         image: false,
         password: false,
@@ -78,7 +104,9 @@ export const getAllUsers = async (page = 1, limit = 10) => {
       name: u.name,
       email: u.email,
       role: u.role,
-      competency: u.competency,
+      mhpssLevel: u.mhpssLevel,
+      gender: u.gender, 
+    region: u.region,   
       createdAt: u.createdAt,
       pendingRoleRequest: u.roleChangeRequests?.[0] ?? null,
     }));
@@ -95,23 +123,6 @@ export const getAllUsers = async (page = 1, limit = 10) => {
   }
 };
 
-export const updateUserCompetency = async (
-    userId: string,
-    newCompetency: number | null
-) => {
-    try {
-        const updatedUser = await prisma.user.update({
-            where: { id: userId },
-            data: { competency: newCompetency },
-        });
-
-        return updatedUser;
-    } catch (err) {
-        console.error('Error updating user competency:', err);
-        return { error: 'Failed to update user competency' };
-    }
-};
-
 export async function updateUserRole(userId: string, role: UserType) {
     try {
         await prisma.user.update({
@@ -122,5 +133,21 @@ export async function updateUserRole(userId: string, role: UserType) {
     } catch (error) {
         console.error('Error updating user role:', error);
         return { success: false, error: 'Failed to update user role' };
+    }
+}
+
+export async function updateUserMhpssLevel(
+    userId: string,
+    mhpssLevel: MhpssLevel | null
+) {
+    try {
+        await prisma.user.update({
+            where: { id: userId },
+            data: { mhpssLevel },
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Error updating user MHPSS level:', error);
+        return { success: false, error: 'Failed to update user MHPSS level' };
     }
 }

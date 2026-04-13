@@ -19,6 +19,7 @@ import MiSaludGrid from './MiSaludGrid';
 import type { Recommendation } from '@/types';
 import { generateRecommendations } from '@/lib/action/misalud';
 import RecommendationsModal from './RecommendationsModal';
+import MiSaludRegistrationForm from './MiSaludRegistrationForm';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
@@ -99,6 +100,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     const [loadingIncidents, setLoadingIncidents] = useState(true);
 
     const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
+    const [showRegistrationModal, setShowRegistrationModal] = useState(false);
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [recommendations, setRecommendations] = useState<Recommendation[]>(
         []
@@ -108,6 +110,17 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
         date: new Date(),
         team: '',
     });
+
+    // 🔥 MiSalud Membership State
+    const [membershipStatus, setMembershipStatus] = useState<
+        'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
+    >('NONE');
+
+    const [membershipData, setMembershipData] = useState<any>(null);
+    const isApprovedTeamLeader =
+    membershipStatus === 'APPROVED' &&
+    membershipData?.role === 'TEAM_LEADER';
+    const [loadingMembership, setLoadingMembership] = useState(true);
 
     const handleRecommendations = (
         responses: QuestionnaireResponses,
@@ -189,11 +202,26 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
         }
     };
 
+    const fetchMembership = async () => {
+        try {
+            const res = await fetch('/api/misalud/membership');
+            const data = await res.json();
+
+            setMembershipStatus(data.status);
+            setMembershipData(data.membership);
+        } catch (error) {
+            console.error('Error fetching membership:', error);
+        } finally {
+            setLoadingMembership(false);
+        }
+    };
+
     useEffect(() => {
         fetchTeamsData();
         fetchEventsData();
         fetchQuestionnaireData();
         fetchIncidentsData();
+        fetchMembership();
     }, []);
 
     // Group questionnaire submissions by team
@@ -387,9 +415,16 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
           : loadingIncidents;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+        <div className="min-h-screen bg-emerald-50 relative">
             <div className="container mx-auto px-4 py-8 max-w-7xl">
-                
+
+                <div
+                    className={`transition-all duration-300 ${
+                        membershipStatus !== 'APPROVED'
+                            ? 'blur-md pointer-events-none select-none'
+                            : ''
+                    }`}
+                >
                 {/* ✅ COMBINED HEADER + CONTROLS (like User Controller / REDAS) */}
                 <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 overflow-hidden rounded-[28px]">
                 {/* ✅ HERO (top) */}
@@ -432,27 +467,38 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                         )}
 
                         <Button
-                            className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white min-w-[180px] h-12 shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 hover:scale-105 rounded-xl"
+                            className="
+                                font-bold
+                                bg-white text-emerald-700
+                                border border-white/70
+                                min-w-[180px] h-12
+                                shadow-xl hover:shadow-2xl
+                                transition-all duration-500
+                                transform hover:-translate-y-1 hover:scale-105
+                                rounded-xl
+                                hover:bg-emerald-50
+                                hover:text-emerald-800
+                            "
                             size="lg"
                             onPress={() => setShowQuestionnaireModal(true)}
                             endContent={
-                            <svg
-                                className="w-5 h-5"
+                                <svg
+                                className="w-5 h-5 text-emerald-700 group-hover:text-emerald-800"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
-                            >
+                                >
                                 <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                                 />
-                            </svg>
+                                </svg>
                             }
-                        >
+                            >
                             Assess Health
-                        </Button>
+                            </Button>
                         </div>
                     </div>
                     </div>
@@ -467,6 +513,8 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                     setSearchQuery={setSearchQuery}
                     setSelectedFilter={setSelectedFilter}
                     setSelectedView={setSelectedView}
+                    showLeaderActions={isApprovedTeamLeader}
+                    onLeaderRequestsClick={() => router.push('/misalud/team-requests')}
                 />
                 </div>
                 </Card>
@@ -560,6 +608,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                                     openSuccessModal={() =>
                                         setShowSuccessDialog(true)
                                     }
+                                    approvedTeamName={membershipData?.teamName}
                                     handleRecommendations={
                                         handleRecommendations
                                     }
@@ -576,6 +625,137 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                     formData={formData}
                 />
             </div>
+        </div>
+        
+
+            {showRegistrationModal && (
+                    <div className="fixed inset-x-0 top-[64px] bottom-0 bg-black/60 z-[110] flex items-center justify-center p-4">
+                        <Card className="bg-white shadow-2xl w-full max-w-xl">
+                            <CardHeader className="pb-4 border-b border-slate-200">
+                                <div className="flex items-center justify-between w-full">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-emerald-700">
+                                            Mi Salud Registration
+                                        </h2>
+                                        <p className="text-slate-600 text-sm">
+                                            Complete your registration to request access to the Mi Salud dashboard
+                                        </p>
+                                    </div>
+
+                                    <Button
+                                        isIconOnly
+                                        variant="light"
+                                        onPress={() => setShowRegistrationModal(false)}
+                                        className="hover:bg-red-100"
+                                    >
+                                        <svg
+                                            className="w-6 h-6 text-slate-400 hover:text-red-500"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M6 18L18 6M6 6l12 12"
+                                            />
+                                        </svg>
+                                    </Button>
+                                </div>
+                            </CardHeader>
+
+                            <CardBody className="p-6">
+                                <MiSaludRegistrationForm
+                                    onCancel={() => setShowRegistrationModal(false)}
+                                    onSuccess={async () => {
+                                        setShowRegistrationModal(false);
+                                        await fetchMembership();
+                                    }}
+                                />
+                            </CardBody>
+                        </Card>
+                    </div>
+                )}
+
+                {/* 🔒 MiSalud Registration / Status Modal */}
+                {!loadingMembership &&
+                    membershipStatus !== 'APPROVED' &&
+                    !showRegistrationModal && (
+                    <div className="fixed inset-x-0 top-[64px] bottom-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+                        <Card className="w-full max-w-lg shadow-2xl border border-white/20">
+                            <CardBody className="p-6 text-center space-y-4">
+                                
+                                {membershipStatus === 'NONE' && (
+                                    <>
+                                        <h2 className="text-2xl font-bold text-emerald-700">
+                                            Join Mi Salud
+                                        </h2>
+                                        <p className="text-slate-600">
+                                            Before accessing the dashboard, you must register
+                                            your team or join an existing one.
+                                        </p>
+
+                                        <Button
+                                            color="success"
+                                            onPress={() => {
+                                                setShowRegistrationModal(true);
+                                            }}
+                                        >
+                                            Register Now
+                                        </Button>
+                                    </>
+                                )}
+
+                                {membershipStatus === 'PENDING' && (
+                                    <>
+                                        <h2 className="text-xl font-bold text-yellow-600">
+                                            Request Pending
+                                        </h2>
+
+                                        <p className="text-slate-600">
+                                            {membershipData?.requestedRole === 'TEAM_LEADER'
+                                                ? 'Your team registration has been submitted and is now waiting for admin approval. You will be able to access Mi Salud once your request is approved.'
+                                                : 'Your join request has been submitted and is now waiting for your team leader’s approval. You will be able to access Mi Salud once your request is approved.'}
+                                        </p>
+                                    </>
+                                )}
+
+                                {membershipStatus === 'REJECTED' && (
+                                    <>
+                                        <h2 className="text-xl font-bold text-red-600">
+                                            Request Not Approved
+                                        </h2>
+
+                                        <p className="text-slate-600">
+                                            Your previous request was not approved. You may review your details and submit a new request.
+                                        </p>
+
+                                        {membershipData?.rejectionReason && (
+                                            <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-left">
+                                                <p className="text-sm font-semibold text-red-700 mb-1">
+                                                    Rejection Reason
+                                                </p>
+                                                <p className="text-sm text-red-600">
+                                                    {membershipData.rejectionReason}
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        <Button
+                                            color="danger"
+                                            onPress={() => {
+                                                setShowRegistrationModal(true);
+                                            }}
+                                        >
+                                            Submit Again
+                                        </Button>
+                                    </>
+                                )}
+                            </CardBody>
+                        </Card>
+                    </div>
+                )}
         </div>
     );
 };

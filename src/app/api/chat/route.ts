@@ -110,7 +110,7 @@ async function aiReply(params: {
       "X-Title": "Harmonisys DRRM-H Assistant",
     },
     body: JSON.stringify({
-      model: "mistralai/mistral-7b-instruct",
+      model: "openai/gpt-4o-mini",
       temperature: 0.2,
       max_tokens: 700,
       messages,
