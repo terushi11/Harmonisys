@@ -257,11 +257,15 @@ export const unahonSections = [
 export const unahonDashboardCols = [
     {
         key: 'client-id',
-        name: 'Client ID',
+        name: 'Patient ID',
     },
     {
         key: 'responder-name',
         name: 'Responder',
+    },
+    {
+        key: 'location',
+        name: 'Location',
     },
     {
         key: 'date',

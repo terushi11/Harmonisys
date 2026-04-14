@@ -719,12 +719,12 @@ export default function IRSOverview({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                 {/* Total Reports */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-blue-500/20 via-blue-100/40 to-white border border-blue-500/30`}>
+                <Card className={`${statCardBase} bg-[#f3ebee] border border-[#d9c8cf]`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                          <FileText className="w-6 h-6 text-white" />
+                        <div className="h-11 w-11 rounded-2xl bg-[#d7b4bf] flex items-center justify-center shadow-md">
+                          <FileText className="w-6 h-6 text-[#8b1538]" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Total Reports</p>
@@ -737,9 +737,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-blue-500/20 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-[#e6d7dc] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
+                        className="h-full rounded-full bg-[#8b1538]"
                         style={{
                           width: statsInView ? '100%' : '0%',
                           transition: 'width 2000ms cubic-bezier(0.16, 1, 0.3, 1)',
@@ -750,12 +750,12 @@ export default function IRSOverview({
                 </Card>
 
                 {/* Active Incidents */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-blue-500/20 via-blue-100/40 to-white border border-blue-500/30`}>
+                <Card className={`${statCardBase} bg-[#eef2fb] border border-[#cfd8ee]`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                          <Clock3 className="w-6 h-6 text-white" />
+                        <div className="h-11 w-11 rounded-2xl bg-[#bcd0ff] flex items-center justify-center shadow-md">
+                          <Clock3 className="w-6 h-6 text-[#2563eb]" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Active Incidents</p>
@@ -768,9 +768,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-blue-500/20 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-[#dbe7ff] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
+                        className="h-full rounded-full bg-[#3b82f6]"
                         style={{
                           width: statsInView
                             ? `${incidentStats.total ? Math.round((incidentStats.active / incidentStats.total) * 100) : 0}%`
@@ -783,12 +783,12 @@ export default function IRSOverview({
                 </Card>
 
                 {/* Resolved */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-green-500/15 to-white border border-green-500/20`}>
+                <Card className={`${statCardBase} bg-[#eef8f0] border border-[#cfe8d4]`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-green-500/25 flex items-center justify-center shadow-md">
-                          <CheckSquare className="w-6 h-6 text-green-600" />
+                        <div className="h-11 w-11 rounded-2xl bg-[#bfe8c8] flex items-center justify-center shadow-md">
+                          <CheckSquare className="w-6 h-6 text-[#16a34a]" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Resolved</p>
@@ -801,9 +801,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-green-500/15 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-[#d9f0de] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-green-500"
+                        className="h-full rounded-full bg-[#22c55e]"
                         style={{
                           width: statsInView
                             ? `${incidentStats.total ? Math.round((incidentStats.resolved / incidentStats.total) * 100) : 0}%`
@@ -816,12 +816,12 @@ export default function IRSOverview({
                 </Card>
 
                 {/* Locations */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-green-500/20 via-green-100/40 to-white border border-green-500/30`}>
+                <Card className={`${statCardBase} bg-[#f4edfb] border border-[#dfcff3]`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
-                          <Layers className="w-6 h-6 text-white" />
+                        <div className="h-11 w-11 rounded-2xl bg-[#d9b8f4] flex items-center justify-center shadow-md">
+                          <Layers className="w-6 h-6 text-[#9333ea]" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Locations</p>
@@ -834,9 +834,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-green-500/20 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-[#eadcf8] overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-600"
+                        className="h-full rounded-full bg-[#a855f7]"
                         style={{
                           width: statsInView
                             ? `${incidentStats.total ? Math.round((incidentStats.locations / incidentStats.total) * 100) : 0}%`

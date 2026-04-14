@@ -229,8 +229,8 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       return Object.entries(data.data).flatMap(([clientId, entries]) =>
         entries.map(({ id, confidentialForm, responder, checklist }, index) => ({
           id,
-          key: `${clientId}-${index}`,
-          'client-id': clientId,
+          key: `${id}-${index}`,
+          'client-id': confidentialForm.client || 'N/A',
           location: confidentialForm.location || 'N/A',
           'responder-name': responder,
           date: new Date(confidentialForm.date).toLocaleDateString(),
@@ -348,23 +348,22 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
     (item: FormRow, columnKey: string | number) => {
       switch (columnKey) {
         case 'client-id':
-          return (
-            <div className="flex flex-col max-w-[180px]">
-              <span className="font-mono text-sm font-semibold text-slate-900 truncate" title={item['client-id']}>
-                {item['client-id']}
-              </span>
-            </div>
-          );
+        return (
+          <div className="flex flex-col w-[160px]">
+            <span className="font-mono text-sm font-semibold text-slate-900 truncate" title={item['client-id']}>
+              {item['client-id']}
+            </span>
+          </div>
+        );
 
         case 'responder-name':
-          return (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md bg-gradient-to-br from-[#7A0C1E] to-[#B91C1C]">
-                {item['responder-name'].charAt(0).toUpperCase()}
-              </div>
-              <span className="font-medium text-slate-800">{item['responder-name']}</span>
-            </div>
-          );
+        return (
+          <div className="flex flex-col w-[100px]">
+            <span className="font-medium text-slate-800">
+              {item['responder-name']}
+            </span>
+          </div>
+        );
 
         case 'date':
           return (
@@ -379,13 +378,15 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
           );
 
           case 'location':
-            return (
-              <div className="flex flex-col max-w-[220px]">
-                <span className="font-medium text-slate-800 truncate" title={item.location}>
-                  {item.location}
-                </span>
-              </div>
-            );
+          return (
+            <div className="w-[180px]">
+              <span className="block font-medium text-slate-800 truncate whitespace-nowrap"
+                title={item.location}
+              >
+                {item.location}
+              </span>
+            </div>
+          );
 
         case 'affiliation':
           return (
@@ -724,7 +725,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
           </h2>
 
           <Card className={`${maroonUI.shell} rounded-[28px]`}>
-            <CardBody className="p-0">
+            <CardBody className="p-0 overflow-x-auto">
               {!isHydrated ? (
                 <div className="flex items-center justify-center py-12">
                   <Spinner size="lg" color="danger" />
@@ -732,6 +733,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
               ) : (
                 <Table
                   aria-label="Unahon forms table"
+                  className="min-w-[1200px] table-fixed"
                   classNames={{
                     wrapper: 'shadow-none bg-transparent',
                     th: maroonUI.tableTh,
@@ -748,20 +750,20 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                             : ''
                         } ${
                           column.key === 'client-id'
-                            ? 'w-[16%]'
-                            : column.key === 'responder-name'
-                            ? 'w-[18%]'
-                            : column.key === 'location'
-                            ? 'w-[18%]'
-                            : column.key === 'date'
-                            ? 'w-[12%]'
-                            : column.key === 'affiliation'
-                            ? 'w-[14%]'
-                            : column.key === 'assessment-type'
-                            ? 'w-[12%]'
-                            : column.key === 'actions'
-                            ? 'w-[10%]'
-                            : ''
+                          ? 'w-[160px]'   // ⬆️ bigger Patient ID
+                          : column.key === 'responder-name'
+                          ? 'w-[100px]'   // ⬇️ smaller Responder
+                          : column.key === 'location'
+                          ? 'w-[180px]'
+                          : column.key === 'date'
+                          ? 'w-[120px]'
+                          : column.key === 'affiliation'
+                          ? 'w-[100px]'
+                          : column.key === 'assessment-type'
+                          ? 'w-[180px]'
+                          : column.key === 'actions'
+                          ? 'w-[220px]'
+                          : ''
                         }`}
                       >
                         {column.name}

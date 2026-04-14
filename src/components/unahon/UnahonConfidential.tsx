@@ -98,13 +98,17 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                         Select generated patient ID
                                     </option>
 
-                                    {(confidentialForm.availablePatientIds || []).map(
-                                        (code) => (
-                                            <option key={code} value={code}>
-                                                {code}
-                                            </option>
-                                        )
+                                    {confidentialForm.client && (
+                                        <option value={confidentialForm.client} hidden>
+                                            {confidentialForm.client}
+                                        </option>
                                     )}
+
+                                    {(confidentialForm.availablePatientIds || []).map((code) => (
+                                        <option key={code} value={code}>
+                                            {code}
+                                        </option>
+                                    ))}
                                 </select>
                             </CardBody>
                         </Card>

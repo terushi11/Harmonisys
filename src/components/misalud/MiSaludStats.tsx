@@ -149,17 +149,9 @@ const MiSaludStats = ({
                         <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div
-                                        className={`p-3 rounded-xl ${
-                                            selectedView === 'events' ? 'bg-[#7B122F]/10' : 'bg-green-100'
-                                        }`}
-                                    >
-                                        <CalendarIcon
-                                            className={`w-8 h-8 ${
-                                                selectedView === 'events' ? 'text-[#7B122F]' : 'text-green-600'
-                                            }`}
-                                        />
-                                    </div>
+                                    <div className="p-3 rounded-xl bg-red-100">
+    <CalendarIcon className="w-8 h-8 text-red-600" />
+</div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
                                             {isArchiveView

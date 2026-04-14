@@ -1,10 +1,16 @@
+'use client';
+
 import { Button } from '@heroui/react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Session } from 'next-auth';
-import { handleGoogleLogin } from '@/lib/action/user';
+import { useState } from 'react';
+import AuthModal from '@/components/auth/AuthModal';
+import { User } from 'lucide-react';
 
 const Hero = ({ session }: { session: Session | null }) => {
+        const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+        const [authModalView, setAuthModalView] = useState<'login' | 'register'>('login');
         const partnerLogos = [
         { src: '/upm.png', alt: 'UPM' },
         { src: '/upmcph.png', alt: 'UPM-CPH' },
@@ -88,26 +94,39 @@ const Hero = ({ session }: { session: Session | null }) => {
                                 </Button>
 
                         ) : (
-                            <form action={handleGoogleLogin} aria-label="Sign in with Google form">
-                                <Button
-                                    type="submit"
-                                    variant="solid"
-                                    className="w-72 h-12 rounded-full font-semibold text-[15px] bg-white text-slate-900 shadow-lg hover:shadow-xl border border-slate-200 hover:border-slate-300 transition-all duration-300 transform hover:scale-[1.03] ring-1 ring-white/60"
-                                    size="md"
-                                    aria-label="Sign in with Google"
-                                    startContent={
-                                        <Image
-                                            src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
-                                            alt="Google Logo"
-                                            height={16}
-                                            width={16}
-                                            className="w-4 h-4"
-                                        />
-                                    }
-                                >
-                                    Sign in with Google
-                                </Button>
-                            </form>
+                            <Button
+                                type="button"
+                                variant="solid"
+                                size="lg"
+                                onPress={() => {
+                                    setAuthModalView('login');
+                                    setIsAuthModalOpen(true);
+                                }}
+                                startContent={<User className="w-5 h-5 text-white mr-1" />}
+                                className="
+                                    w-80 h-14
+                                    rounded-full
+                                    font-semibold text-[16px]
+
+                                    bg-gradient-to-r from-[#7A1111] via-[#A11B1B] to-[#C21E1E]
+                                    text-white
+
+                                    border border-white/10
+                                    shadow-lg shadow-black/30
+                                    ring-1 ring-white/20
+
+                                    hover:from-[#5B0A0A]
+                                    hover:via-[#7A1111]
+                                    hover:to-[#A11B1B]
+
+                                    hover:scale-[1.04]
+                                    hover:shadow-xl
+
+                                    transition-all duration-300
+                                "
+                            >
+                                Access DRRM tools
+                            </Button>
                         )}
                     </div>
                 </div>
@@ -154,6 +173,11 @@ const Hero = ({ session }: { session: Session | null }) => {
                 </div>
 
                 </div>
+                <AuthModal
+                    isOpen={isAuthModalOpen}
+                    onOpenChange={setIsAuthModalOpen}
+                    defaultView={authModalView}
+                />
         </section>
     );
 };

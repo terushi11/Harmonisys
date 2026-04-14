@@ -23,6 +23,7 @@ import { useState } from 'react';
 import AuthModal from '@/components/auth/AuthModal';
 import {
   ChevronDownIcon,
+  LogIn,
   MenuIcon,
   XIcon,
   LogOutIcon,
@@ -574,15 +575,35 @@ const toolsCssVars = {
                 <Button
                   type="button"
                   variant="solid"
-                  className="bg-white text-gray-700 hover:bg-gray-50 font-medium shadow-md border-0 transition-all duration-200 hover:shadow-lg px-4"
                   size="md"
                   onPress={() => {
                     setAuthModalView('login');
                     setIsAuthModalOpen(true);
                   }}
+                  startContent={
+                    <LogIn className="w-4 h-4 text-[#5B0A0A]" />
+                  }
+                  className="
+                    px-5 py-2.5 rounded-xl
+                    font-semibold
+
+                    bg-white text-gray-900
+
+                    border border-[#5B0A0A]/20
+                    shadow-md shadow-black/20
+
+                    hover:shadow-lg hover:scale-[1.03]
+                    hover:bg-white hover:border-red-200
+
+                    transition-all duration-300 ease-out
+                  "
                 >
-                  <span className="hidden sm:inline">Sign In / Log In</span>
-                  <span className="sm:hidden">Sign In</span>
+                  <span className="hidden sm:inline bg-gradient-to-r from-[#7A0C1E] via-[#5B0A0A] to-[#3B0505] bg-clip-text text-transparent">
+                    Sign In / Log In
+                  </span>
+                  <span className="sm:hidden bg-gradient-to-r from-[#7A0C1E] via-[#5B0A0A] to-[#3B0505] bg-clip-text text-transparent">
+                    Sign In
+                  </span>
                 </Button>
               )}
 

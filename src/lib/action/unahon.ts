@@ -225,6 +225,23 @@ export const saveUnahonForm = async (data: {
     }
 };
 
+export const getUsedPatientIds = async () => {
+    try {
+        const records = await prisma.unahon.findMany({
+            select: {
+                client: true,
+            },
+        });
+
+        return records
+            .map((record) => record.client)
+            .filter((client): client is string => Boolean(client));
+    } catch (error) {
+        console.error('Error fetching used patient IDs:', error);
+        return [];
+    }
+};
+
 export const getUnahonFormsSummary = async (): Promise<UnahonSummary> => {
     const unahonSummary = {
         redCount: 0,

@@ -53,38 +53,7 @@ const MiSaludControls = ({
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
         {/* View Toggle */}
         <div className="flex flex-col sm:flex-row gap-3 flex-1">
-          <Dropdown>
-            <DropdownTrigger>
-              <Button
-                className="font-semibold min-w-[180px]"
-                color="primary"
-                variant="flat"
-                size="lg"
-                endContent={<ChevronDownIcon className="size-4" />}
-              >
-                📊{' '}
-                {
-                  viewOptions.find((option) => option.value === selectedView)
-                    ?.label
-                }
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu className="bg-white/95 backdrop-blur-sm">
-              {viewOptions.map((option) => (
-                <DropdownItem
-                  key={option.value}
-                  onPress={() => {
-                    setSelectedView(option.value as 'teams' | 'events');
-                    setSelectedFilter('all');
-                  }}
-                  className="hover:bg-slate-100/80"
-                >
-                  {option.label}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-
+          
           <Dropdown>
             <DropdownTrigger>
               <Button

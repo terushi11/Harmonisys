@@ -138,19 +138,38 @@ const reverseGeocode = async (lat: number, lng: number) => {
     }
 };
 
+const PATIENT_ID_PADDING = 5;
+const PATIENT_ID_BATCH_SIZE = 10;
+
 const generatePatientIdOptions = (
     location: string,
     date: Date,
     start = 1,
-    count = 10
+    count = PATIENT_ID_BATCH_SIZE,
+    excludedIds: string[] = []
 ) => {
     const acronym = buildLocationAcronym(location);
     const formattedDate = formatPatientDate(date);
+    const excludedSet = new Set(excludedIds);
+    const generated: string[] = [];
 
-    return Array.from({ length: count }, (_, index) => {
-        const sequence = String(start + index).padStart(3, '0');
-        return `${acronym}-${formattedDate}-${sequence}`;
-    });
+    let sequenceNumber = start;
+
+    while (generated.length < count) {
+        const sequence = String(sequenceNumber).padStart(
+            PATIENT_ID_PADDING,
+            '0'
+        );
+        const candidate = `${acronym}-${formattedDate}-${sequence}`;
+
+        if (!excludedSet.has(candidate)) {
+            generated.push(candidate);
+        }
+
+        sequenceNumber += 1;
+    }
+
+    return generated;
 };
 
 const UnahonTable = dynamic(() => import('./UnahonTable'), {
@@ -194,6 +213,8 @@ const Unahon: React.FC<UnahonProps> = ({
         [category: number]: { [key: number]: [a: boolean, b: boolean] };
     }>(() => buildInitialChecklist());
 
+    const [usedPatientIds, setUsedPatientIds] = useState<string[]>([]);
+
     const [confidentialForm, setConfidentialForm] = useState<ConfidentialForm>(
         () => {
             const initialDate = clientConfidentialForm?.date
@@ -203,15 +224,26 @@ const Unahon: React.FC<UnahonProps> = ({
             const initialLocation =
                 clientConfidentialForm?.location || 'Detecting current location...';
 
+            const initialClient =
+                clientConfidentialForm?.client ||
+                generatePatientIdOptions(
+                    initialLocation,
+                    initialDate,
+                    1,
+                    1,
+                    usedPatientIds
+                )[0];
+
             const generatedOptions = generatePatientIdOptions(
                 initialLocation,
                 initialDate,
                 1,
-                10
+                PATIENT_ID_BATCH_SIZE,
+                usedPatientIds
             );
 
             return {
-                client: clientConfidentialForm?.client || generatedOptions[0],
+                client: initialClient,
                 userId: session.user.id!,
                 location: initialLocation,
                 date: initialDate,
@@ -304,6 +336,48 @@ const Unahon: React.FC<UnahonProps> = ({
     };
 
     useEffect(() => {
+        const fetchUsedPatientIds = async () => {
+            try {
+                const response = await fetch('/api/unahon/used-ids');
+                const data = await response.json();
+                setUsedPatientIds(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error('Error fetching used patient IDs:', error);
+                setUsedPatientIds([]);
+            }
+        };
+
+        fetchUsedPatientIds();
+    }, []);
+
+    useEffect(() => {
+        if (!usedPatientIds.length) return;
+        if (clientConfidentialForm?.client) return;
+
+        setConfidentialForm((prevForm) => {
+            const nextClient = generatePatientIdOptions(
+                prevForm.location,
+                new Date(prevForm.date),
+                1,
+                1,
+                usedPatientIds
+            )[0];
+
+            return {
+                ...prevForm,
+                client: nextClient,
+                availablePatientIds: generatePatientIdOptions(
+                    prevForm.location,
+                    new Date(prevForm.date),
+                    1,
+                    PATIENT_ID_BATCH_SIZE,
+                    usedPatientIds
+                ),
+            };
+        });
+    }, [usedPatientIds, clientConfidentialForm?.client]);
+
+    useEffect(() => {
         if (unahonChecklist) {
             setChecklist(unahonChecklist);
         }
@@ -326,11 +400,17 @@ const Unahon: React.FC<UnahonProps> = ({
                     session.user.responderOrganization ||
                     '',
                 availablePatientIds:
-                    clientConfidentialForm.availablePatientIds ||
-                    generatePatientIdOptions(location, date, 1, 10),
+                clientConfidentialForm.availablePatientIds ||
+                generatePatientIdOptions(
+                    location,
+                    date,
+                    1,
+                    PATIENT_ID_BATCH_SIZE,
+                    usedPatientIds
+                ),
             }));
         }
-    }, [unahonChecklist, clientConfidentialForm, session.user.responderOrganization]);
+    }, [unahonChecklist, clientConfidentialForm, session.user.responderOrganization, usedPatientIds]);
 
     useEffect(() => {
         if (clientConfidentialForm?.location) return;
@@ -349,14 +429,24 @@ const Unahon: React.FC<UnahonProps> = ({
                     ? new Date(confidentialForm.date)
                     : new Date();
 
+                const nextClient = generatePatientIdOptions(
+                    resolvedLocation,
+                    currentDate,
+                    1,
+                    1,
+                    usedPatientIds
+                )[0];
+
                 setConfidentialForm((prevForm) => ({
                     ...prevForm,
                     location: resolvedLocation,
+                    client: nextClient,
                     availablePatientIds: generatePatientIdOptions(
                         resolvedLocation,
                         currentDate,
                         1,
-                        10
+                        PATIENT_ID_BATCH_SIZE,
+                        usedPatientIds
                     ),
                 }));
             },
@@ -369,7 +459,7 @@ const Unahon: React.FC<UnahonProps> = ({
                 maximumAge: 300000,
             }
         );
-    }, [clientConfidentialForm?.location, confidentialForm.date]);
+    }, [clientConfidentialForm?.location, confidentialForm.date, usedPatientIds]);
 
     useEffect(() => {
         if (isLoading) return;
@@ -408,28 +498,29 @@ const Unahon: React.FC<UnahonProps> = ({
         setConfidentialForm((prevData) => {
             const updatedData = { ...prevData, [id]: value };
 
-            if (id === 'client') {
-                const currentOptions = prevData.availablePatientIds || [];
-                const selectedIndex = currentOptions.indexOf(value);
+            if (id === 'date' || id === 'location') {
+                const nextLocation =
+                    id === 'location' ? value : prevData.location;
+                const nextDate =
+                    id === 'date' ? new Date(value) : new Date(prevData.date);
 
-                if (
-                    selectedIndex >= currentOptions.length - 3 &&
-                    prevData.location &&
-                    prevData.date
-                ) {
-                    const nextStart = currentOptions.length + 1;
-                    const nextOptions = generatePatientIdOptions(
-                        prevData.location,
-                        new Date(prevData.date),
-                        nextStart,
-                        10
-                    );
+                const nextClient = generatePatientIdOptions(
+                    nextLocation,
+                    nextDate,
+                    1,
+                    1,
+                    usedPatientIds
+                )[0];
 
-                    updatedData.availablePatientIds = [
-                        ...currentOptions,
-                        ...nextOptions,
-                    ];
-                }
+                updatedData.client = nextClient;
+                updatedData.availablePatientIds = generatePatientIdOptions(
+                    nextLocation,
+                    nextDate,
+                    1,
+                    PATIENT_ID_BATCH_SIZE,
+                    usedPatientIds
+                );
+                return updatedData;
             }
 
             return updatedData;
