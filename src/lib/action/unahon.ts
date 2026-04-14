@@ -149,9 +149,11 @@ export const getUnahonFormsGroupedByClient = async (
             const confidentialForm: ConfidentialForm = {
                 client: form.client,
                 userId: form.userId,
-                date: form.date!,
+                location: form.location || '',
+                date: form.date,
                 affiliation: form.affiliation,
                 assessmentType: form.assessmentType,
+                availablePatientIds: [],
             };
 
             if (!groupedByClient[form.client]) {
@@ -186,6 +188,7 @@ export const saveUnahonForm = async (data: {
     client: string;
     assessmentType: AssessmentType;
     userId: string;
+    location: string;
     affiliation: string;
     date: Date;
     checklist: {
@@ -197,6 +200,7 @@ export const saveUnahonForm = async (data: {
             data: {
                 client: data.client,
                 userId: data.userId,
+                location: data.location,
                 affiliation: data.affiliation,
                 date: data.date,
                 assessmentType: data.assessmentType,

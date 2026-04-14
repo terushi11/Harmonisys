@@ -140,7 +140,16 @@ export async function GET() {
     const requests = await prisma.roleChangeRequest.findMany({
       where: { status: RequestStatus.PENDING },
       orderBy: { createdAt: "desc" },
-      include: {
+      select: {
+        id: true,
+        userId: true,
+        fromRole: true,
+        toRole: true,
+        requestedMhpssLevel: true,
+        requestedResponderOrganization: true,
+        requestedMhpssCertificateFileUrl: true,
+        status: true,
+        createdAt: true,
         user: {
           select: {
             id: true,

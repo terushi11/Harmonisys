@@ -39,11 +39,13 @@ export interface UnahonModalProps {
 }
 
 export interface ConfidentialForm {
-    client: string;
+    client: string; // this now stores the Patient ID value
     userId: string;
+    location: string;
     date: Date;
     affiliation: string;
     assessmentType: AssessmentType;
+    availablePatientIds?: string[];
 }
 
 export interface UnahonConfidentialProps {
@@ -70,15 +72,16 @@ export interface UnahonGuideProps {
 }
 
 export interface FormRow {
-    id: string;
-    key: string;
-    'client-id': string;
-    'responder-name': string;
-    date: string;
-    affiliation: string;
-    'assessment-type': AssessmentType;
-    checklist: Checklist;
-    confidentialForm: ConfidentialForm;
+  id: string;
+  key: string;
+  'client-id': string;
+  location: string; // ✅ ADD THIS
+  'responder-name': string;
+  date: string;
+  affiliation: string;
+  'assessment-type': AssessmentType;
+  confidentialForm: any;
+  checklist: any;
 }
 
 export interface UnahonFormEntry {

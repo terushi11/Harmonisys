@@ -1,19 +1,166 @@
 'use client';
 
 import { Button, useDisclosure, Card, CardBody, Skeleton } from '@heroui/react';
-import UnahonTable from './UnahonTable';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { unahonSections } from '@/constants';
 import { AssessmentType } from '@prisma/client';
 import UnahonConfidential from './UnahonConfidential';
 import UnahonGuide from './UnahonGuide';
-import { createId } from '@paralleldrive/cuid2';
 import type { UnahonProps, Row, ConfidentialForm } from '@/types';
 import { saveUnahonForm } from '@/lib/action/unahon';
 import { useRouter } from 'next/navigation';
 import MHPSSLevel from '@/components/MHPSS';
 import SuccessDialog from '../SuccessDialog';
 import UnahonConfirmModal from './UnahonConfirmModal';
+
+const CITY_CODE_MAP: Record<string, string> = {
+    manila: 'MNL',
+    'quezon city': 'QC',
+    caloocan: 'CAL',
+    makati: 'MKT',
+    pasig: 'PSG',
+    taguig: 'TGU',
+    pasay: 'PSY',
+    paranaque: 'PRQ',
+    'parañaque': 'PRQ',
+    muntinlupa: 'MTP',
+    'las pinas': 'LPN',
+    'las piñas': 'LPN',
+    marikina: 'MRK',
+    mandaluyong: 'MDY',
+    malabon: 'MLB',
+    navotas: 'NVT',
+    valenzuela: 'VLZ',
+    'san juan': 'SNJ',
+    cebu: 'CEB',
+    'cebu city': 'CEB',
+    davao: 'DAV',
+    'davao city': 'DAV',
+    iloilo: 'ILO',
+    'iloilo city': 'ILO',
+    baguio: 'BAG',
+    bacolod: 'BCD',
+    'cagayan de oro': 'CDO',
+    zamboanga: 'ZAM',
+};
+
+const normalizeLocationText = (value: string) =>
+    value
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const buildLocationAcronym = (location?: string | null) => {
+    if (!location) return 'UNK';
+
+    const normalizedLocation = normalizeLocationText(location);
+
+    const matchedEntry = Object.entries(CITY_CODE_MAP).find(([cityName]) =>
+        normalizedLocation.includes(cityName)
+    );
+
+    if (matchedEntry) {
+        return matchedEntry[1];
+    }
+
+    const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
+    const fallbackPart = parts[parts.length - 1] || location;
+
+    return fallbackPart
+        .replace(/[^a-zA-Z ]/g, '')
+        .split(' ')
+        .filter(Boolean)
+        .map((word) => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 3) || 'UNK';
+};
+
+const formatPatientDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}${month}${day}`;
+};
+
+const shortenLocation = (result: any) => {
+    const address = result?.address || {};
+
+    const place =
+        address.amenity ||
+        address.building ||
+        address.office ||
+        address.attraction ||
+        address.shop ||
+        '';
+
+    const district =
+        address.suburb ||
+        address.city_district ||
+        address.neighbourhood ||
+        address.quarter ||
+        '';
+
+    const city =
+        address.city ||
+        address.municipality ||
+        address.town ||
+        address.village ||
+        '';
+
+    const cleanedParts = [place, district, city].filter(Boolean);
+
+    if (cleanedParts.length > 0) {
+        return cleanedParts.join(', ');
+    }
+
+    const fullAddress = result?.display_name || '';
+    if (!fullAddress) return '';
+
+    return fullAddress.split(',').slice(0, 2).join(',').trim();
+};
+
+const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+        );
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error reverse geocoding location:', error);
+        return null;
+    }
+};
+
+const generatePatientIdOptions = (
+    location: string,
+    date: Date,
+    start = 1,
+    count = 10
+) => {
+    const acronym = buildLocationAcronym(location);
+    const formattedDate = formatPatientDate(date);
+
+    return Array.from({ length: count }, (_, index) => {
+        const sequence = String(start + index).padStart(3, '0');
+        return `${acronym}-${formattedDate}-${sequence}`;
+    });
+};
+
+const UnahonTable = dynamic(() => import('./UnahonTable'), {
+    loading: () => (
+        <div className="space-y-6">
+            <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+            <div className="h-[520px] rounded-2xl bg-slate-100 animate-pulse" />
+        </div>
+    ),
+});
 
 const Unahon: React.FC<UnahonProps> = ({
     session,
@@ -25,18 +172,64 @@ const Unahon: React.FC<UnahonProps> = ({
     onReturnToManagement,
 }) => {
     const router = useRouter();
+
+    const buildInitialChecklist = () => {
+        if (unahonChecklist) return unahonChecklist;
+
+        const initialChecklist: {
+            [category: number]: { [key: number]: [a: boolean, b: boolean] };
+        } = {};
+
+        unahonSections.forEach((section, section_index) => {
+            initialChecklist[section_index] = {};
+            section.questions.forEach((question: Row) => {
+                initialChecklist[section_index][question.number] = [false, false];
+            });
+        });
+
+        return initialChecklist;
+    };
+
     const [checklist, setChecklist] = useState<{
         [category: number]: { [key: number]: [a: boolean, b: boolean] };
-    }>({});
-    const [confidentialForm, setConfidentialForm] = useState<ConfidentialForm>({
-        client: createId(),
-        userId: session.user.id!,
-        date: new Date(),
-        affiliation: '',
-        assessmentType: AssessmentType.INITIAL_ASSESSMENT,
-    });
+    }>(() => buildInitialChecklist());
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [confidentialForm, setConfidentialForm] = useState<ConfidentialForm>(
+        () => {
+            const initialDate = clientConfidentialForm?.date
+                ? new Date(clientConfidentialForm.date)
+                : new Date();
+
+            const initialLocation =
+                clientConfidentialForm?.location || 'Detecting current location...';
+
+            const generatedOptions = generatePatientIdOptions(
+                initialLocation,
+                initialDate,
+                1,
+                10
+            );
+
+            return {
+                client: clientConfidentialForm?.client || generatedOptions[0],
+                userId: session.user.id!,
+                location: initialLocation,
+                date: initialDate,
+                affiliation:
+                    clientConfidentialForm?.affiliation ||
+                    session.user.responderOrganization ||
+                    '',
+                assessmentType:
+                    clientConfidentialForm?.assessmentType ||
+                    AssessmentType.INITIAL_ASSESSMENT,
+                availablePatientIds: generatedOptions,
+                ...(clientConfidentialForm ?? {}),
+            };
+        }
+    );
+
+    const [isLoading, setIsLoading] = useState(false);
+
     const [currentIndex, setCurrentIndex] = useState(0);
 
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -44,6 +237,7 @@ const Unahon: React.FC<UnahonProps> = ({
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const assessmentTopRef = useRef<HTMLDivElement | null>(null);
+    const previousIndexRef = useRef<number | null>(null);
     const hasMountedRef = useRef(false);
 
     const goToPreviousSection = useCallback(() => {
@@ -110,48 +304,90 @@ const Unahon: React.FC<UnahonProps> = ({
     };
 
     useEffect(() => {
-        setChecklist(() => {
-            if (unahonChecklist) {
-                setIsLoading(false);
-                return unahonChecklist;
+        if (unahonChecklist) {
+            setChecklist(unahonChecklist);
+        }
+
+        if (clientConfidentialForm) {
+            const location =
+                clientConfidentialForm.location || 'Detecting current location...';
+
+            const date = clientConfidentialForm.date
+                ? new Date(clientConfidentialForm.date)
+                : new Date();
+
+            setConfidentialForm((prevForm) => ({
+                ...prevForm,
+                ...clientConfidentialForm,
+                location,
+                date,
+                affiliation:
+                    clientConfidentialForm.affiliation ||
+                    session.user.responderOrganization ||
+                    '',
+                availablePatientIds:
+                    clientConfidentialForm.availablePatientIds ||
+                    generatePatientIdOptions(location, date, 1, 10),
+            }));
+        }
+    }, [unahonChecklist, clientConfidentialForm, session.user.responderOrganization]);
+
+    useEffect(() => {
+        if (clientConfidentialForm?.location) return;
+        if (typeof window === 'undefined' || !navigator.geolocation) return;
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                const reverseGeocodeResult = await reverseGeocode(lat, lng);
+                const resolvedLocation =
+                    shortenLocation(reverseGeocodeResult) ||
+                    `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                const currentDate = confidentialForm.date
+                    ? new Date(confidentialForm.date)
+                    : new Date();
+
+                setConfidentialForm((prevForm) => ({
+                    ...prevForm,
+                    location: resolvedLocation,
+                    availablePatientIds: generatePatientIdOptions(
+                        resolvedLocation,
+                        currentDate,
+                        1,
+                        10
+                    ),
+                }));
+            },
+            (error) => {
+                console.error('Error getting current location:', error);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000,
             }
-
-            const initialChecklist: {
-                [category: number]: { [key: number]: [a: boolean, b: boolean] };
-            } = {};
-
-            unahonSections.forEach((section, section_index) => {
-                initialChecklist[section_index] = {};
-                section.questions.forEach((question: Row) => {
-                    initialChecklist[section_index][question.number] = [
-                        false,
-                        false,
-                    ];
-                });
-            });
-
-            setIsLoading(false);
-
-            return initialChecklist;
-        });
-
-        setConfidentialForm((prevForm) => {
-            return clientConfidentialForm ?? prevForm;
-        });
-    }, [unahonChecklist, clientConfidentialForm]);
+        );
+    }, [clientConfidentialForm?.location, confidentialForm.date]);
 
     useEffect(() => {
         if (isLoading) return;
 
         if (!hasMountedRef.current) {
             hasMountedRef.current = true;
+            previousIndexRef.current = currentIndex;
             return;
         }
 
-        assessmentTopRef.current?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start',
-        });
+        if (previousIndexRef.current !== currentIndex) {
+            assessmentTopRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }
+
+        previousIndexRef.current = currentIndex;
     }, [currentIndex, isLoading]);
 
     const handleChecklistChange = (rowNumber: number, column: number) => {
@@ -169,7 +405,35 @@ const Unahon: React.FC<UnahonProps> = ({
     };
 
     const handleConfidentialFormChange = (id: string, value: any) => {
-        setConfidentialForm((prevData) => ({ ...prevData, [id]: value }));
+        setConfidentialForm((prevData) => {
+            const updatedData = { ...prevData, [id]: value };
+
+            if (id === 'client') {
+                const currentOptions = prevData.availablePatientIds || [];
+                const selectedIndex = currentOptions.indexOf(value);
+
+                if (
+                    selectedIndex >= currentOptions.length - 3 &&
+                    prevData.location &&
+                    prevData.date
+                ) {
+                    const nextStart = currentOptions.length + 1;
+                    const nextOptions = generatePatientIdOptions(
+                        prevData.location,
+                        new Date(prevData.date),
+                        nextStart,
+                        10
+                    );
+
+                    updatedData.availablePatientIds = [
+                        ...currentOptions,
+                        ...nextOptions,
+                    ];
+                }
+            }
+
+            return updatedData;
+        });
     };
 
     const isNextButtonDisabled = useCallback(() => {
@@ -444,9 +708,7 @@ const Unahon: React.FC<UnahonProps> = ({
                                     isViewOnly={isViewOnly}
                                     isReassessment={isReassessment}
                                     confidentialForm={confidentialForm}
-                                    handleConfidentialFormChange={
-                                        handleConfidentialFormChange
-                                    }
+                                    handleConfidentialFormChange={handleConfidentialFormChange}
                                     responder={responder}
                                 />
                             )

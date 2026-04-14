@@ -48,14 +48,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
                 shadow-[0_30px_80px_rgba(0,0,0,0.45)]
               "
             >
-              <div
-                className="pointer-events-none absolute inset-0 opacity-[0.08]"
-                style={{
-                  backgroundImage:
-                    'radial-gradient(rgba(255,255,255,0.8) 0.7px, transparent 0.7px)',
-                  backgroundSize: '16px 16px',
-                }}
-              />
 
               <div className="relative">
                 <div className="flex items-start justify-between px-6 pt-6 pb-4 sm:px-7 sm:pt-7">
@@ -97,7 +89,6 @@ const AuthModal: React.FC<AuthModalProps> = ({
                   ) : (
                     <RegisterForm
                       onSwitchToLogin={() => setView('login')}
-                      onSuccess={() => setView('login')}
                     />
                   )}
                 </div>

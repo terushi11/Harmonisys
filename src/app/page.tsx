@@ -25,7 +25,6 @@ const Home = async () => {
 
       <Footer isAuthenticated={isAuthenticated} />
 
-
       {/* Floating chatbot */}
       <ChatWidget />
     </HeroUIProvider>

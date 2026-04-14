@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardBody, CardHeader, Button } from '@heroui/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type {
     Team,
     Event,
@@ -65,23 +65,20 @@ type MiSaludProps = {
 };
 
 const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
-      const roleRaw = String(userRole || 'STANDARD').toUpperCase();
+    const roleRaw = String(userRole || 'STANDARD').toUpperCase();
   const isResponderView = roleRaw.includes('RESPONDER'); // true for RESPONDER users
+  const isAdminView = roleRaw.includes('ADMIN');
 
 
     const router = useRouter();
     useEffect(() => {
-  const canAccess = userRole === 'ADMIN' || userRole === 'RESPONDER';
-  if (!canAccess) {
-    router.replace('/overview/misalud');
-  }
-}, [userRole, router]);
+    const canAccess = isAdminView || isResponderView;
+    if (!canAccess) {
+        router.replace('/overview/misalud');
+    }
+    }, [isAdminView, isResponderView, router]);
 
-    const searchParams = useSearchParams();
-    const [selectedView, setSelectedView] = useState<'teams' | 'events'>(() => {
-        const viewParam = searchParams.get('view');
-        return viewParam === 'events' ? 'events' : 'teams';
-    });
+    const [selectedView, setSelectedView] = useState<'teams' | 'events'>('teams');
     const [selectedFilter, setSelectedFilter] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -203,6 +200,16 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     };
 
     const fetchMembership = async () => {
+        if (isAdminView) {
+            setMembershipStatus('APPROVED');
+            setMembershipData({
+                role: 'ADMIN',
+                teamName: 'Admin Access',
+            });
+            setLoadingMembership(false);
+            return;
+        }
+
         try {
             const res = await fetch('/api/misalud/membership');
             const data = await res.json();
@@ -420,7 +427,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
 
                 <div
                     className={`transition-all duration-300 ${
-                        membershipStatus !== 'APPROVED'
+                        !isAdminView && membershipStatus !== 'APPROVED'
                             ? 'blur-md pointer-events-none select-none'
                             : ''
                     }`}
@@ -433,7 +440,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div>
                         <h1 className="text-4xl lg:text-5xl font-black text-white drop-shadow-[0_12px_22px_rgba(0,0,0,0.35)] mb-2">
-                            MiSalud Dashboard
+                            Mi Salud Dashboard
                         </h1>
                         <p className="text-white/85 text-lg">
                             {isArchiveView
@@ -679,9 +686,10 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                 )}
 
                 {/* 🔒 MiSalud Registration / Status Modal */}
-                {!loadingMembership &&
-                    membershipStatus !== 'APPROVED' &&
-                    !showRegistrationModal && (
+                {!isAdminView &&
+                !loadingMembership &&
+                membershipStatus !== 'APPROVED' &&
+                !showRegistrationModal && (
                     <div className="fixed inset-x-0 top-[64px] bottom-0 z-[100] flex items-center justify-center bg-black/60 p-4">
                         <Card className="w-full max-w-lg shadow-2xl border border-white/20">
                             <CardBody className="p-6 text-center space-y-4">

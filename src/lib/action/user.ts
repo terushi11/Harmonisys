@@ -66,25 +66,29 @@ export const getAllUsers = async (page = 1, limit = 10) => {
     const users = await prisma.user.findMany({
       skip,
       take: limit,
-      select: {
+        select: {
         id: true,
         name: true,
         email: true,
         role: true,
         mhpssLevel: true,
-        gender: true,   
+        responderOrganization: true,
+        mhpssCertificateFileUrl: true,
+        gender: true,
         region: true,
         createdAt: true,
 
         roleChangeRequests: {
-          where: { status: "PENDING" },
-          orderBy: { createdAt: "desc" },
+          where: { status: 'PENDING' },
+          orderBy: { createdAt: 'desc' },
           take: 1,
           select: {
             id: true,
             fromRole: true,
             toRole: true,
             requestedMhpssLevel: true,
+            requestedResponderOrganization: true,
+            requestedMhpssCertificateFileUrl: true,
             status: true,
             createdAt: true,
           },
@@ -105,8 +109,10 @@ export const getAllUsers = async (page = 1, limit = 10) => {
       email: u.email,
       role: u.role,
       mhpssLevel: u.mhpssLevel,
-      gender: u.gender, 
-    region: u.region,   
+      responderOrganization: u.responderOrganization,
+      mhpssCertificateFileUrl: u.mhpssCertificateFileUrl,
+      gender: u.gender,
+      region: u.region,
       createdAt: u.createdAt,
       pendingRoleRequest: u.roleChangeRequests?.[0] ?? null,
     }));

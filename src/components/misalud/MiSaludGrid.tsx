@@ -70,10 +70,16 @@ const MiSaludGrid = ({
     return (
         <div className="mb-8">
             <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <div className="w-1 h-8 bg-gradient-to-b from-teal-500 to-cyan-600 rounded-full"></div>
+                <div
+                    className={`w-1 h-8 rounded-full ${
+                        selectedView === 'events'
+                            ? 'bg-gradient-to-b from-[#7B122F] to-[#A3153D]'
+                            : 'bg-gradient-to-b from-teal-500 to-cyan-600'
+                    }`}
+                ></div>
                 {selectedView === 'teams'
                     ? 'Team Management'
-                    : 'Event Tracking'}
+                    : 'Incident Response Teams'}
             </h2>
 
             {!isLoading ? (
@@ -272,19 +278,19 @@ const MiSaludGrid = ({
                           : // Show new incidents data grouped by teamDeployed
   (filteredEvents as IncidentGroup[]).map((group) => (
       <Card
-          key={group.teamDeployed}
-          isPressable
-          onPress={() => handleEventClick(group.teamDeployed)}
-          className="group cursor-pointer overflow-hidden border border-emerald-500/30 bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-700 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-emerald-500"
-      >
+            key={group.teamDeployed}
+            isPressable
+            onPress={() => handleEventClick(group.teamDeployed)}
+            className="group cursor-pointer overflow-hidden border border-[#7B122F]/20 bg-gradient-to-br from-[#7B122F] via-[#8E1738] to-[#A3153D] shadow-[0_14px_30px_rgba(123,18,47,0.20)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_rgba(123,18,47,0.28)] hover:border-[#7B122F]/35 rounded-[28px]"
+        >
 
         <CardHeader className="px-5 pt-6 pb-4">
             <div className="w-full min-h-[120px] flex flex-col items-center justify-center text-center">
                 <h3 className="max-w-[90%] text-xl font-bold text-white leading-snug line-clamp-3">
-                    Team: {group.teamDeployed || 'Unassigned'}
+                    Deployed Team: {group.teamDeployed || 'Unassigned'}
                 </h3>
 
-                <p className="mt-2 text-sm text-emerald-100">
+                <p className="mt-2 text-sm text-rose-100">
                     {group.totalIncidents} incident
                     {group.totalIncidents !== 1 ? 's' : ''}
                 </p>
@@ -293,7 +299,7 @@ const MiSaludGrid = ({
 
           <CardBody className="px-5 pb-5 pt-0">
               <div className="space-y-4">
-                  <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
+                  <div className="rounded-2xl border border-white/75 bg-white/95 p-4 shadow-[0_10px_24px_rgba(0,0,0,0.10)]">
                       <div className="flex justify-between items-center gap-3">
                           <span className="text-sm font-medium text-slate-600">
                               Latest Incident:
@@ -304,17 +310,21 @@ const MiSaludGrid = ({
                       </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
+                  <div className="rounded-2xl border border-white/75 bg-white/95 p-4 shadow-[0_10px_24px_rgba(0,0,0,0.10)]">
                       <div className="text-sm font-medium text-slate-600 mb-2">
                           Most Recent:
                       </div>
                       <div className="text-sm font-bold text-slate-800">
-                          {group.incidents[0]?.summary.substring(0, 40)}...
+                          {group.incidents[0]?.summary
+                            ? group.incidents[0].summary.length > 52
+                                ? `${group.incidents[0].summary.substring(0, 52)}...`
+                                : group.incidents[0].summary
+                            : 'No recent summary available'}
                       </div>
                   </div>
 
                   {group.incidents.length > 0 && (
-                      <div className="rounded-2xl border border-white/80 bg-white p-4 shadow-sm">
+                      <div className="rounded-2xl border border-white/75 bg-white/95 p-4 shadow-[0_10px_24px_rgba(0,0,0,0.10)]">
                           <div className="text-xs font-medium text-slate-600 mb-3">
                               Recent Incidents:
                           </div>

@@ -46,6 +46,10 @@ const Unahon = ({ session }: UnahonDashboardProps) => {
   });
 
   const router = useRouter();
+  useEffect(() => {
+    router.prefetch('/unahon/form');
+  }, [router]);
+
   const userRole = session?.user?.role;
 const isResponderView = userRole === 'RESPONDER';
 
@@ -149,6 +153,8 @@ const isResponderView = userRole === 'RESPONDER';
   };
 
   const handleStartReassessment = () => {
+    const location = session?.user?.region || 'Unknown';
+
     setCurrentUnahonProps({
       session: session!,
       isViewOnly: false,
@@ -156,9 +162,14 @@ const isResponderView = userRole === 'RESPONDER';
       clientConfidentialForm: {
         client: pendingRequest?.client || '',
         userId: session!.user.id!,
+        location,
         date: new Date(),
-        affiliation: pendingRequest?.affiliation || '',
+        affiliation:
+        pendingRequest?.affiliation ||
+        (session?.user as any)?.responderOrganization ||
+        '',
         assessmentType: AssessmentType.RE_ASSESSMENT,
+        availablePatientIds: [],
       },
     });
 
@@ -178,37 +189,33 @@ const isResponderView = userRole === 'RESPONDER';
     return (
       <div className={`min-h-screen ${BG}`}>
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          {/* Actions row (Go Back beside Form placeholder) */}
-          <div className="mb-6 flex justify-end gap-3">
-            {!isResponderView && (
-            <Button
-              as={Link}
-              href="/overview/unahon"
-              variant="bordered"
-              startContent={<ArrowLeft className="w-4 h-4" />}
-              className={GO_BACK}
-            >
-              Go Back
-            </Button>
-            )}
-
-            <Skeleton className="w-[180px] h-12 rounded-lg" />
-          </div>
-
-          <Card className="mb-8 bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
+          <Card className={`mb-8 ${HERO_CARD}`}>
             <CardBody className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                  <h1
-                    className={`text-4xl lg:text-5xl font-black bg-gradient-to-r ${TITLE_GRADIENT} bg-clip-text text-transparent mb-2`}
-                  >
+                  <h1 className={`text-4xl lg:text-5xl font-black mb-2 ${HERO_TITLE}`}>
                     Unahon Dashboard
                   </h1>
-                  <p className="text-slate-600 text-lg">
+                  <p className={`text-lg ${HERO_SUBTITLE}`}>
                     Comprehensive overview of assessment data and analytics
                   </p>
                 </div>
-                <div />
+
+                <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                  {!isResponderView && (
+                    <Button
+                      as={Link}
+                      href="/overview/unahon"
+                      variant="bordered"
+                      startContent={<ArrowLeft className="w-4 h-4 text-white" />}
+                      className={HERO_BTN_OUTLINE}
+                    >
+                      Go Back
+                    </Button>
+                  )}
+
+                  <Skeleton className="h-12 w-[180px] rounded-2xl" />
+                </div>
               </div>
             </CardBody>
           </Card>
@@ -225,7 +232,7 @@ const isResponderView = userRole === 'RESPONDER';
               {Array.from({ length: 4 }).map((_, index) => (
                 <Card
                   key={index}
-                  className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 animate-pulse"
+                  className="shadow-lg border border-white/20 bg-white/70 backdrop-blur-sm ring-2 ring-white/70"
                 >
                   <CardBody className="p-6">
                     <div className="flex items-center gap-4 mb-4">
@@ -248,14 +255,38 @@ const isResponderView = userRole === 'RESPONDER';
             </div>
           </div>
 
-          <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
-            <CardBody className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Skeleton className="h-96 rounded-lg" />
-                <Skeleton className="h-96 rounded-lg" />
-              </div>
-            </CardBody>
-          </Card>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <div
+                className={`w-1 h-8 bg-gradient-to-b ${ACCENT_BAR} rounded-full`}
+              />
+              Assessment Distribution
+            </h2>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="text-center">
+                  <h3 className="w-full text-xl font-bold text-slate-800 text-center">
+                    Assessment Type
+                  </h3>
+                </CardHeader>
+                <CardBody className="p-6">
+                  <Skeleton className="h-80 rounded-lg" />
+                </CardBody>
+              </Card>
+
+              <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
+                <CardHeader className="text-center">
+                  <h3 className="w-full text-xl font-bold text-slate-800 text-center">
+                    Assessment Level
+                  </h3>
+                </CardHeader>
+                <CardBody className="p-6">
+                  <Skeleton className="h-80 rounded-lg" />
+                </CardBody>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -320,9 +351,10 @@ const isResponderView = userRole === 'RESPONDER';
                     )}
 
                     <Button
+                      as={Link}
+                      href="/unahon/form"
                       className={`${HERO_BTN_SOLID} min-w-[180px]`}
                       size="lg"
-                      onPress={() => router.push('/unahon/form')}
                       endContent={<FileText className="w-5 h-5" />}
                     >
                       Unahon Form

@@ -120,7 +120,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
                             {title}
                         </p>
 
-                        <p className="text-4xl font-black text-slate-900 leading-none group-hover:scale-[1.02] transition-transform duration-300">
+                        <p
+                            className={`${
+                                title === 'Recent Activity'
+                                    ? 'text-xl sm:text-2xl'
+                                    : 'text-4xl'
+                            } font-black text-slate-900 leading-none whitespace-nowrap group-hover:scale-[1.02] transition-transform duration-300`}
+                        >
                             {typeof value === 'number'
                                 ? value.toLocaleString()
                                 : value}
@@ -263,6 +269,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const [selectedTab, setSelectedTab] = useState('overview');
     const [avatarError, setAvatarError] = useState(false);
 
+    const [isResponderIdleOpen, setIsResponderIdleOpen] = useState(false);
+    const [showResponderTools, setShowResponderTools] = useState(false);
+
     // Role-based UI
     const role = session?.user?.role as UserType | undefined;
     const isAdmin = role === UserType.ADMIN;
@@ -299,6 +308,80 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         fetchDashboardData();
     }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (!isResponder && !isAdmin) return;
+
+        const locationPromptShown = localStorage.getItem('locationPromptShown');
+        const storedLocation = localStorage.getItem('userLocation');
+
+        if (locationPromptShown || storedLocation) return;
+        if (!navigator.geolocation) return;
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const locationData = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    timestamp: Date.now(),
+                };
+
+                localStorage.setItem('userLocation', JSON.stringify(locationData));
+                localStorage.setItem('locationPromptShown', 'true');
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                localStorage.setItem('locationPromptShown', 'true');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000,
+            }
+        );
+    }, [isResponder, isAdmin]);
+
+    useEffect(() => {
+        if (!isResponder) return;
+
+        let idleTimer: ReturnType<typeof setTimeout>;
+
+        const startIdleTimer = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => {
+                setShowResponderTools(false);
+                setIsResponderIdleOpen(true);
+            }, 30000);
+        };
+
+        const handleUserActivity = () => {
+            if (isResponderIdleOpen) return;
+            startIdleTimer();
+        };
+
+        const activityEvents: Array<keyof WindowEventMap> = [
+            'mousemove',
+            'mousedown',
+            'keydown',
+            'scroll',
+            'touchstart',
+            'click',
+        ];
+
+        startIdleTimer();
+
+        activityEvents.forEach((event) => {
+            window.addEventListener(event, handleUserActivity);
+        });
+
+        return () => {
+            clearTimeout(idleTimer);
+            activityEvents.forEach((event) => {
+                window.removeEventListener(event, handleUserActivity);
+            });
+        };
+    }, [isResponder, isResponderIdleOpen]);
 
     const toolTheme = {
         irs: 'bg-gradient-to-br from-[#4A0A18] via-[#6B0F25] to-[#8B1538]',
@@ -391,7 +474,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         },
         {
             title: 'Health Assessment',
-            description: 'Complete health screening',
+            description: 'Mi Salud health screening',
             icon: <Heart className="w-6 h-6" />,
             href: '/misalud',
             color: 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white shadow-xl hover:shadow-2xl',
@@ -418,6 +501,30 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         if (isStandard && a.href === '/misalud') return false;
         return true;
     });
+
+    const responderIdleTools = [
+        {
+            title: 'Report Incident',
+            description: 'Create new incident report',
+            icon: <AlertTriangle className="w-6 h-6" />,
+            href: '/irs',
+            color: 'bg-gradient-to-r from-[#7A0C1E] to-[#B91C1C] hover:from-[#6B0F25] hover:to-[#991B1B] text-white shadow-xl hover:shadow-2xl',
+        },
+        {
+            title: 'Mental Screening',
+            description: 'Start Unahon assessment',
+            icon: <ShieldCheck className="w-6 h-6" />,
+            href: '/unahon',
+            color: 'bg-gradient-to-r from-blue-700 to-sky-600 hover:from-blue-800 hover:to-sky-700 text-white shadow-xl hover:shadow-2xl',
+        },
+        {
+            title: 'Health Assessment',
+            description: 'Mi Salud health screening',
+            icon: <Heart className="w-6 h-6" />,
+            href: '/misalud',
+            color: 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white shadow-xl hover:shadow-2xl',
+        },
+    ];
 
     const getGreeting = () => {
         const hour = new Date().getHours();
@@ -924,6 +1031,110 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                         </CardBody>
                     </Card>
                 )}
+
+                <Modal
+                    isOpen={isResponderIdleOpen}
+                    onOpenChange={(open) => {
+                        setIsResponderIdleOpen(open);
+                        if (!open) {
+                            setShowResponderTools(false);
+                        }
+                    }}
+                    size="md"
+                    classNames={{
+                        backdrop: 'bg-black/40 backdrop-blur-sm',
+                        base: 'border-0 bg-white/95 backdrop-blur-xl shadow-2xl',
+                        header: 'border-b border-rose-100',
+                        body: 'py-6',
+                    }}
+                >
+                    <ModalContent>
+                        <ModalHeader>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-gradient-to-br from-rose-100 to-red-100 rounded-xl">
+                                    <Lightbulb className="w-6 h-6 text-rose-700" />
+                                </div>
+                                <h2 className="text-[24px] font-bold text-slate-900">
+                                    Are you Responding Now?
+                                </h2>
+                            </div>
+                        </ModalHeader>
+
+                        <ModalBody>
+                            {!showResponderTools ? (
+                                <div className="space-y-4">
+                                    <p className="text-slate-600 text-base">
+                                        You’ve been idle for a while. Do you want quick access to responder tools?
+                                    </p>
+
+                                    <div className="flex flex-col sm:flex-row gap-3">
+                                        <Button
+                                            className="bg-gradient-to-r from-[#7A0C1E] to-[#B91C1C] text-white font-bold"
+                                            onPress={() => setShowResponderTools(true)}
+                                        >
+                                            Yes
+                                        </Button>
+
+                                        <Button
+                                            variant="flat"
+                                            className="font-semibold"
+                                            onPress={() => {
+                                                setIsResponderIdleOpen(false);
+                                                setShowResponderTools(false);
+                                            }}
+                                        >
+                                            No
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <p className="text-slate-600 text-base">
+                                        Choose a responder tool to continue.
+                                    </p>
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        {responderIdleTools.map((action, index) => (
+                                            <Button
+                                                key={index}
+                                                className={`${action.color} font-bold h-20 text-left transition-all duration-300 transform hover:scale-[1.02]`}
+                                                onPress={() => {
+                                                    router.push(action.href);
+                                                    setIsResponderIdleOpen(false);
+                                                    setShowResponderTools(false);
+                                                }}
+                                                startContent={
+                                                    <div className="p-2 bg-white/20 rounded-lg">
+                                                        {action.icon}
+                                                    </div>
+                                                }
+                                            >
+                                                <div className="flex flex-col items-start">
+                                                    <div className="font-bold text-lg">
+                                                        {action.title}
+                                                    </div>
+                                                    <div className="text-sm opacity-90 font-normal">
+                                                        {action.description}
+                                                    </div>
+                                                </div>
+                                            </Button>
+                                        ))}
+                                    </div>
+
+                                    <div className="pt-2">
+                                        <Button
+                                            variant="flat"
+                                            className="font-semibold"
+                                            onPress={() => setShowResponderTools(false)}
+                                        >
+                                            Back
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </ModalBody>
+                    </ModalContent>
+                </Modal>
 
                 {/* Quick Actions Modal */}
                 <Modal

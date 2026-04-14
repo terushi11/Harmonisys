@@ -41,6 +41,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       fromRole: true,
       toRole: true,
       requestedMhpssLevel: true,
+      requestedResponderOrganization: true,
+      requestedMhpssCertificateFileUrl: true,
       status: true,
     },
   });
@@ -82,6 +84,32 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     );
   }
 
+  if (
+    requestRow.toRole === UserType.RESPONDER &&
+    !requestRow.requestedResponderOrganization
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Responder approval requires a requested organization or affiliation.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    requestRow.toRole === UserType.RESPONDER &&
+    !requestRow.requestedMhpssCertificateFileUrl
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Responder approval requires a certificate or proof file.",
+      },
+      { status: 400 }
+    );
+  }
+
   if (action === "REJECT") {
     await prisma.roleChangeRequest.update({
       where: { id },
@@ -103,6 +131,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         mhpssLevel:
           requestRow.toRole === UserType.RESPONDER
             ? requestRow.requestedMhpssLevel
+            : null,
+        responderOrganization:
+          requestRow.toRole === UserType.RESPONDER
+            ? requestRow.requestedResponderOrganization
+            : null,
+        mhpssCertificateFileUrl:
+          requestRow.toRole === UserType.RESPONDER
+            ? requestRow.requestedMhpssCertificateFileUrl
             : null,
       },
     }),

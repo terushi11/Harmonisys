@@ -29,10 +29,7 @@ const MiSaludControls = ({
   showLeaderActions = false,
   onLeaderRequestsClick,
 }: Props) => {
-  const viewOptions = [
-    { label: 'Teams', value: 'teams' },
-    { label: 'Events', value: 'events' },
-  ];
+  const viewOptions = [{ label: 'Teams', value: 'teams' }];
 
   const teamFilterOptions = [
     { label: 'All Teams', value: 'all' },
@@ -98,20 +95,11 @@ const MiSaludControls = ({
                 endContent={<ChevronDownIcon className="size-4" />}
               >
                 🔍{' '}
-                {selectedView === 'teams'
-                  ? teamFilterOptions.find(
-                      (option) => option.value === selectedFilter
-                    )?.label
-                  : eventFilterOptions.find(
-                      (option) => option.value === selectedFilter
-                    )?.label}
+                {teamFilterOptions.find((option) => option.value === selectedFilter)?.label}
               </Button>
             </DropdownTrigger>
             <DropdownMenu className="bg-white/95 backdrop-blur-sm">
-              {(selectedView === 'teams'
-                ? teamFilterOptions
-                : eventFilterOptions
-              ).map((option) => (
+              {teamFilterOptions.map((option) => (
                 <DropdownItem
                   key={option.value}
                   onPress={() => setSelectedFilter(option.value)}
@@ -139,11 +127,7 @@ const MiSaludControls = ({
         {/* Search */}
         <div className="w-full lg:w-auto">
           <Input
-            placeholder={`Search ${
-              selectedView === 'teams'
-                ? 'teams and members'
-                : 'incidents and locations'
-            }...`}
+            placeholder="Search teams and members..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="min-w-[320px]"

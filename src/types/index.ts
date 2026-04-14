@@ -30,13 +30,18 @@ export interface User {
     email: string;
     role: UserType;
     mhpssLevel: string | null;
+    responderOrganization?: string | null;
+    mhpssCertificateFileUrl?: string | null;
     gender?: string | null;
     region?: string | null;
+    fullAddress?: string | null;
     createdAt: Date;
     pendingRoleRequest?: {
         id: string;
         toRole: UserType;
         requestedMhpssLevel?: string | null;
+        requestedResponderOrganization?: string | null;
+        requestedMhpssCertificateFileUrl?: string | null;
         status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
         createdAt?: string;
     } | null;

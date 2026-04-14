@@ -1,24 +1,37 @@
 import { NextResponse } from 'next/server';
+import path from 'path';
+import { mkdir, writeFile } from 'fs/promises';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { Gender, MhpssLevel, RequestStatus, UserType } from '@prisma/client';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+      const formData = await req.formData();
 
-    const {
-      firstName,
-      lastName,
-      gender,
-      region,
-      mhpssLevel,
-      role,
-      privacyPolicyAccepted,
-      email,
-      password,
-      confirmPassword,
-    } = body;
+    const firstName = String(formData.get('firstName') || '').trim();
+    const lastName = String(formData.get('lastName') || '').trim();
+    const gender = String(formData.get('gender') || '').trim();
+    const region = String(formData.get('region') || '').trim();
+    const mhpssLevel = String(formData.get('mhpssLevel') || '').trim();
+    const responderOrganization = String(formData.get('responderOrganization') || '').trim();
+    const role = String(formData.get('role') || '').trim();
+    const privacyPolicyAccepted =
+      String(formData.get('privacyPolicyAccepted') || '').trim() === 'true';
+    const email = String(formData.get('email') || '').trim();
+    const password = String(formData.get('password') || '');
+    const confirmPassword = String(formData.get('confirmPassword') || '');
+    const mhpssCertificateFile = formData.get('mhpssCertificateFile') as File | null;
+
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
+
+    let uploadedCertificatePath: string | null = null;
 
     if (
       !firstName ||
@@ -74,6 +87,20 @@ export async function POST(req: Request) {
       );
     }
 
+    if (role === 'RESPONDER' && !mhpssCertificateFile) {
+      return NextResponse.json(
+        { success: false, message: 'Certificate or proof of MHPSS Level is required for responders.' },
+        { status: 400 }
+      );
+    }
+
+    if (role === 'RESPONDER' && !responderOrganization) {
+      return NextResponse.json(
+        { success: false, message: 'Responder organization or affiliation is required for responders.' },
+        { status: 400 }
+      );
+    }
+
     if (password !== confirmPassword) {
       return NextResponse.json(
         { success: false, message: 'Passwords do not match.' },
@@ -101,16 +128,48 @@ export async function POST(req: Request) {
       );
     }
 
+    if (role === 'RESPONDER' && mhpssCertificateFile) {
+      if (mhpssCertificateFile.size > 5 * 1024 * 1024) {
+        return NextResponse.json(
+          { success: false, message: 'File must be less than 5MB.' },
+          { status: 400 }
+        );
+      }
+      if (!allowedMimeTypes.includes(mhpssCertificateFile.type)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Invalid certificate file type. Allowed: PDF, JPG, JPEG, PNG, DOC, DOCX.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const bytes = await mhpssCertificateFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'mhpss-certificates');
+      await mkdir(uploadDir, { recursive: true });
+
+      const safeOriginalName = mhpssCertificateFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileName = `${Date.now()}-${safeOriginalName}`;
+      const filePath = path.join(uploadDir, fileName);
+
+      await writeFile(filePath, buffer);
+
+      uploadedCertificatePath = `/uploads/mhpss-certificates/${fileName}`;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    const fullName = `${String(firstName).trim()} ${String(lastName).trim()}`.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
 
     const user = await prisma.user.create({
       data: {
         name: fullName,
-        firstName: String(firstName).trim(),
-        lastName: String(lastName).trim(),
+        firstName,
+        lastName,
         gender: gender as Gender,
-        region: String(region).trim(),
+        region,
 
         // Active values stay safe until admin approval
         role: UserType.STANDARD,
@@ -119,6 +178,17 @@ export async function POST(req: Request) {
         privacyPolicyAccepted: Boolean(privacyPolicyAccepted),
         email: normalizedEmail,
         password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        gender: true,
+        region: true,
+        mhpssLevel: true,
+        role: true,
       },
     });
 
@@ -129,11 +199,12 @@ export async function POST(req: Request) {
           userId: user.id,
           fromRole: UserType.STANDARD,
           toRole: role as UserType,
-
-          // requires this field in Prisma model
           requestedMhpssLevel:
             role === 'RESPONDER' ? (mhpssLevel as MhpssLevel) : null,
-
+          requestedResponderOrganization:
+            role === 'RESPONDER' ? responderOrganization : null,
+          requestedMhpssCertificateFileUrl:
+            role === 'RESPONDER' ? uploadedCertificatePath : null,
           status: RequestStatus.PENDING,
         },
       });
@@ -146,7 +217,7 @@ export async function POST(req: Request) {
           role === 'STANDARD'
             ? 'Registration successful.'
             : 'Registration successful. Your requested role is pending admin approval.',
-        user: {
+      user: {
           id: user.id,
           name: user.name,
           firstName: user.firstName,

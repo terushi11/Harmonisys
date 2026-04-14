@@ -19,10 +19,26 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
     handleConfidentialFormChange,
     isViewOnly,
     isReassessment,
-    responder,
 }) => {
+    const assessmentTypeValue = isReassessment
+        ? AssessmentType.RE_ASSESSMENT
+        : isViewOnly
+          ? confidentialForm.assessmentType
+          : AssessmentType.INITIAL_ASSESSMENT;
+
+    const assessmentDateValue =
+        confidentialForm.date instanceof Date
+            ? toCalendarDate(
+                  parseAbsoluteToLocal(confidentialForm.date.toISOString())
+              )
+            : toCalendarDate(
+                  parseAbsoluteToLocal(
+                      new Date(confidentialForm.date).toISOString()
+                  )
+              );
+
     return (
-        <Card className="bg-gradient-to-br from-red-50 via-red-100/50 to-red-50 border-2 border-red-300 border-dashed shadow-xl">
+        <div className="bg-gradient-to-br from-red-50 via-red-100/50 to-red-50 border-2 border-red-300 border-dashed shadow-xl rounded-2xl">
             <CardHeader className="text-center pb-4">
                 <div className="w-full">
                     <div className="flex items-center justify-center gap-3 mb-4">
@@ -32,6 +48,7 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                         </h1>
                         <div className="w-2 h-8 bg-gradient-to-b from-red-500 to-red-600 rounded-full"></div>
                     </div>
+
                     <div className="flex items-center justify-center gap-2">
                         <svg
                             className="w-5 h-5 text-red-500"
@@ -62,19 +79,33 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                     htmlFor="client"
                                     className="text-slate-700 font-semibold mb-2 block"
                                 >
-                                    Client ID:
+                                    Patient ID:
                                 </label>
-                                <Input
+
+                                <select
                                     id="client"
-                                    value={confidentialForm.client}
-                                    isDisabled // Always disabled - client ID should not be editable
-                                    variant="bordered"
-                                    className="font-medium"
-                                    classNames={{
-                                        input: 'text-gray-900',
-                                        label: 'text-gray-700 font-medium',
-                                    }}
-                                />
+                                    value={confidentialForm.client || ''}
+                                    disabled={isViewOnly}
+                                    onChange={(event) =>
+                                        handleConfidentialFormChange(
+                                            'client',
+                                            event.target.value
+                                        )
+                                    }
+                                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 shadow-sm outline-none focus:border-red-400"
+                                >
+                                    <option value="" disabled>
+                                        Select generated patient ID
+                                    </option>
+
+                                    {(confidentialForm.availablePatientIds || []).map(
+                                        (code) => (
+                                            <option key={code} value={code}>
+                                                {code}
+                                            </option>
+                                        )
+                                    )}
+                                </select>
                             </CardBody>
                         </Card>
 
@@ -84,24 +115,16 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                     Assessment Type:
                                 </label>
                                 <RadioGroup
-                                    isDisabled // Always disabled - set automatically
+                                    isDisabled
                                     orientation="horizontal"
-                                    value={
-                                        isReassessment
-                                            ? AssessmentType.RE_ASSESSMENT
-                                            : isViewOnly
-                                              ? confidentialForm.assessmentType
-                                              : AssessmentType.INITIAL_ASSESSMENT
-                                    }
+                                    value={assessmentTypeValue}
                                     classNames={{
                                         wrapper: cn('gap-6'),
                                         base: 'flex-row',
                                     }}
                                 >
                                     <Radio
-                                        value={
-                                            AssessmentType.INITIAL_ASSESSMENT
-                                        }
+                                        value={AssessmentType.INITIAL_ASSESSMENT}
                                         classNames={{
                                             base: 'flex items-center gap-2',
                                             wrapper:
@@ -112,6 +135,7 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                             Initial Assessment
                                         </span>
                                     </Radio>
+
                                     <Radio
                                         value={AssessmentType.RE_ASSESSMENT}
                                         classNames={{
@@ -133,14 +157,14 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                         <Card className="bg-white/70 backdrop-blur-sm shadow-md border border-slate-200">
                             <CardBody className="p-4">
                                 <label
-                                    htmlFor="responder"
+                                    htmlFor="location"
                                     className="text-slate-700 font-semibold mb-2 block"
                                 >
-                                    Responder:
+                                    Location:
                                 </label>
                                 <Input
-                                    id="responder"
-                                    value={responder}
+                                    id="location"
+                                    value={confidentialForm.location || ''}
                                     isDisabled
                                     variant="bordered"
                                     className="font-medium"
@@ -164,24 +188,9 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                     id="date"
                                     aria-label="Assessment Date"
                                     isDisabled={isViewOnly}
-                                    value={
-                                        confidentialForm.date instanceof Date
-                                            ? toCalendarDate(
-                                                  parseAbsoluteToLocal(
-                                                      confidentialForm.date.toISOString()
-                                                  )
-                                              )
-                                            : toCalendarDate(
-                                                  parseAbsoluteToLocal(
-                                                      new Date(
-                                                          confidentialForm.date
-                                                      ).toISOString()
-                                                  )
-                                              )
-                                    }
+                                    value={assessmentDateValue}
                                     onChange={(date) => {
                                         if (date) {
-                                            // Convert CalendarDate back to Date object
                                             const jsDate = new Date(
                                                 date.year,
                                                 date.month - 1,
@@ -210,19 +219,12 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                                 htmlFor="affiliation"
                                 className="text-slate-700 font-semibold mb-2 block"
                             >
-                                Responder Organization/Affiliation:
+                                Organization / Affiliation:
                             </label>
                             <Input
                                 id="affiliation"
-                                isDisabled={isViewOnly}
-                                value={confidentialForm.affiliation}
-                                onChange={(event) =>
-                                    handleConfidentialFormChange(
-                                        event.target.id,
-                                        event.target.value
-                                    )
-                                }
-                                placeholder="Enter organization or affiliation"
+                                isDisabled
+                                value={confidentialForm.affiliation || 'No organization provided'}
                                 variant="bordered"
                                 className="font-medium"
                                 classNames={{
@@ -260,7 +262,7 @@ const UnahonConfidential: React.FC<UnahonConfidentialProps> = ({
                     </CardBody>
                 </Card>
             </CardBody>
-        </Card>
+        </div>
     );
 };
 

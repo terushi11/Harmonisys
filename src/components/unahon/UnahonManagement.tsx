@@ -231,6 +231,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
           id,
           key: `${clientId}-${index}`,
           'client-id': clientId,
+          location: confidentialForm.location || 'N/A',
           'responder-name': responder,
           date: new Date(confidentialForm.date).toLocaleDateString(),
           affiliation: confidentialForm.affiliation || 'N/A',
@@ -348,14 +349,10 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       switch (columnKey) {
         case 'client-id':
           return (
-            <div className="flex flex-col">
-              <span className="font-mono text-sm font-semibold text-slate-900">
+            <div className="flex flex-col max-w-[180px]">
+              <span className="font-mono text-sm font-semibold text-slate-900 truncate" title={item['client-id']}>
                 {item['client-id']}
               </span>
-              <span className="text-xs text-slate-500">
-                ID: {item['client-id'].slice(-8)}
-              </span>
-              <span className="text-[10px] text-red-500">DB ID: {item.id}</span>
             </div>
           );
 
@@ -380,6 +377,15 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
               </span>
             </div>
           );
+
+          case 'location':
+            return (
+              <div className="flex flex-col max-w-[220px]">
+                <span className="font-medium text-slate-800 truncate" title={item.location}>
+                  {item.location}
+                </span>
+              </div>
+            );
 
         case 'affiliation':
           return (
@@ -732,7 +738,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                     td: maroonUI.tableTd,
                   }}
                 >
-                  <TableHeader columns={unahonDashboardCols.filter((col) => col.key !== 'client-id')}>
+                  <TableHeader columns={unahonDashboardCols}>
                     {(column) => (
                       <TableColumn
                         key={column.key}
@@ -741,16 +747,20 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                             ? 'text-center'
                             : ''
                         } ${
-                          column.key === 'responder-name'
-                            ? 'w-[28%]'
+                          column.key === 'client-id'
+                            ? 'w-[16%]'
+                            : column.key === 'responder-name'
+                            ? 'w-[18%]'
+                            : column.key === 'location'
+                            ? 'w-[18%]'
                             : column.key === 'date'
-                            ? 'w-[14%]'
+                            ? 'w-[12%]'
                             : column.key === 'affiliation'
                             ? 'w-[14%]'
                             : column.key === 'assessment-type'
-                            ? 'w-[23%]'
+                            ? 'w-[12%]'
                             : column.key === 'actions'
-                            ? 'w-[21%]'
+                            ? 'w-[10%]'
                             : ''
                         }`}
                       >

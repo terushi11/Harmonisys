@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { Button } from '@heroui/react';
 import { Mail, Lock } from 'lucide-react';
 import AuthFloatingInput from './AuthFloatingInput';
-import { handleCredentialsLogin, handleGoogleLogin } from '@/lib/action/user';
+import { handleCredentialsLogin } from '@/lib/action/user';
 
 interface LoginFormProps {
   onSwitchToRegister?: () => void;
@@ -81,21 +81,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
           className="w-full h-14 rounded-2xl bg-yellow-400 text-black font-bold text-[18px] hover:bg-yellow-300"
         >
           Login
-        </Button>
-      </form>
-
-      <div className="my-5 flex items-center gap-3">
-        <div className="h-px flex-1 bg-white/15" />
-        <span className="text-white/55 text-sm font-medium">or</span>
-        <div className="h-px flex-1 bg-white/15" />
-      </div>
-
-      <form action={handleGoogleLogin}>
-        <Button
-          type="submit"
-          className="w-full h-14 rounded-2xl bg-white text-gray-800 font-semibold hover:bg-gray-100"
-        >
-          Continue with Google
         </Button>
       </form>
 

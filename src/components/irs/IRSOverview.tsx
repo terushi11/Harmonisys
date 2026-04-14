@@ -14,8 +14,6 @@ import {
   Info,
   Layers,
   Clock3,
-  CheckCircle2,
-  XCircle,
   CheckSquare,
 } from 'lucide-react';
 
@@ -33,7 +31,13 @@ import {
 import Questionnaire from './Questionnaire';
 import SuccessDialog from '../SuccessDialog';
 
-const COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#7B122F', '#8B5CF6', '#06B6D4'];
+import {
+  PHILIPPINE_REGIONS,
+  REGION_ALIASES,
+  CITY_TO_REGION,
+} from '@/utils/philippineRegions';
+
+const COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#7B122F', '#8B5CF6', '#d406a4'];
 
 type IncidentStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESOLVED';
 type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -166,6 +170,71 @@ const Bar3D = (props: any) => {
   );
 };
 
+const normalizeLocationToken = (value: string) => {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\(.*?\)\s*/g, '')
+    .replace(/\bcity\b/g, '')
+    .replace(/\bmunicipality\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const findRegionByNormalizedCity = (value: string) => {
+  const normalizedValue = normalizeLocationToken(value);
+  if (!normalizedValue) return null;
+
+  for (const [knownCity, region] of Object.entries(CITY_TO_REGION)) {
+    if (normalizeLocationToken(knownCity) === normalizedValue) {
+      return region;
+    }
+  }
+
+  return null;
+};
+
+const toTitleCase = (value: string) =>
+  value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+const findCanonicalCityName = (value: string) => {
+  const normalizedValue = normalizeLocationToken(value);
+  if (!normalizedValue) return null;
+
+  for (const knownCity of Object.keys(CITY_TO_REGION)) {
+    if (normalizeLocationToken(knownCity) === normalizedValue) {
+      return toTitleCase(normalizeLocationToken(knownCity));
+    }
+  }
+
+  return null;
+};
+
+const isKnownPhilippineCity = (value: string) => {
+  return findRegionByNormalizedCity(value) !== null;
+};
+
+const extractRegion = (rawLocation: string) => {
+  const value = rawLocation.trim();
+  if (!value) return 'Unknown';
+
+  const parts = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return 'Unknown';
+
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    if (REGION_ALIASES[lower]) return REGION_ALIASES[lower];
+  }
+
+  const city = extractCity(rawLocation);
+  return findRegionByNormalizedCity(city) ?? 'Unknown';
+};
+
 const extractCity = (rawLocation: string) => {
   const value = rawLocation.trim();
   if (!value) return 'Unknown';
@@ -193,31 +262,22 @@ const extractCity = (rawLocation: string) => {
     if (
       lower.includes('city') ||
       lower.includes('municipality') ||
-      lower.includes('manila') ||
-      lower.includes('quezon') ||
-      lower.includes('makati') ||
-      lower.includes('pasig') ||
-      lower.includes('taguig') ||
-      lower.includes('pasay') ||
-      lower.includes('parañaque') ||
-      lower.includes('paranaque') ||
-      lower.includes('las piñas') ||
-      lower.includes('las pinas') ||
-      lower.includes('mandaluyong') ||
-      lower.includes('marikina') ||
-      lower.includes('muntinlupa') ||
-      lower.includes('caloocan') ||
-      lower.includes('malabon') ||
-      lower.includes('navotas') ||
-      lower.includes('valenzuela')
+      CITY_TO_REGION[lower] ||
+      findRegionByNormalizedCity(part)
     ) {
-      return part;
+      return findCanonicalCityName(part) ?? 'Unknown';
     }
   }
 
-  if (parts.length >= 2) return parts[parts.length - 2];
-  return parts[parts.length - 1];
-};
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const part = parts[i];
+    if (isKnownPhilippineCity(part)) {
+      return findCanonicalCityName(part) ?? 'Unknown';
+    }
+  }
+
+  return 'Unknown';
+  };
 
 type IRSOverviewProps = {
   name: string;
@@ -258,6 +318,7 @@ export default function IRSOverview({
   const locRef = useRef<HTMLDivElement | null>(null);
 
   const [barChartKey, setBarChartKey] = useState(0);
+  const [selectedRegion, setSelectedRegion] = useState('ALL');
 
   const fetchIncidents = useCallback(async () => {
     if (!canSeeAnalytics && userRole !== 'ADMIN') return;
@@ -316,39 +377,69 @@ export default function IRSOverview({
     };
   }, []);
 
+  const regionOptions = ['ALL', ...PHILIPPINE_REGIONS];
+
+  const filteredIncidents = useMemo(() => {
+    if (selectedRegion === 'ALL') return incidents;
+
+    return incidents.filter(
+      (incident) => extractRegion(incident.location || '') === selectedRegion
+    );
+  }, [incidents, selectedRegion]);
+
   const incidentStats = {
-    total: incidents.length,
-    active: incidents.filter(
+    total: filteredIncidents.length,
+    active: filteredIncidents.filter(
       (i) => i.status === 'PENDING' || i.status === 'APPROVED'
     ).length,
-    resolved: incidents.filter((i) => i.status === 'RESOLVED').length,
+    resolved: filteredIncidents.filter((i) => i.status === 'RESOLVED').length,
     locations: new Set(
-      incidents.map((i) => extractCity(i.location || 'Unknown'))
+      filteredIncidents
+        .map((i) => extractCity(i.location || 'Unknown'))
+        .filter((city) => city !== 'Unknown')
     ).size,
   };
 
   const locationData = useMemo(() => {
     const locationCounts: Record<string, number> = {};
 
-    incidents.forEach((incident) => {
+    filteredIncidents.forEach((incident) => {
       const city =
         typeof incident.location === 'string' && incident.location.trim()
           ? extractCity(incident.location)
           : 'Unknown';
 
+      if (city === 'Unknown') return;
+
       locationCounts[city] = (locationCounts[city] || 0) + 1;
     });
 
-    return Object.entries(locationCounts).map(([name, value], index) => ({
+    return Object.entries(locationCounts).map(([name, value]) => ({
       name,
       value,
-      color: COLORS[index % COLORS.length],
     }));
-  }, [incidents]);
+  }, [filteredIncidents]);
 
   const topLocations = useMemo(() => {
-    return [...locationData].sort((a, b) => b.value - a.value).slice(0, 6);
+    return [...locationData]
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6)
+      .map((item, index) => ({
+        ...item,
+        color: COLORS[index % COLORS.length],
+      }));
   }, [locationData]);
+
+  useEffect(() => {
+    setLocInView(false);
+
+    const timer = setTimeout(() => {
+      setBarChartKey((k) => k + 1);
+      setLocInView(true);
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [selectedRegion]);
 
   const handleCloseModal = () => setOpen(false);
 
@@ -386,7 +477,7 @@ export default function IRSOverview({
       subtitle: 'Browse incidents by date & severity',
       icon: <CalendarDays className="h-5 w-5 text-white" />,
       iconBg: 'bg-gradient-to-r from-[#D97706] to-[#F59E0B]',
-      href: '/misalud?view=events',
+      href: '/incidents',
       locked: !canViewIncidents,
     },
     {
@@ -459,7 +550,7 @@ export default function IRSOverview({
               {canViewIncidents ? (
                 <Button
                   as={Link}
-                  href="/misalud?view=events"
+                  href="/incidents"
                   className="font-bold bg-white/95 hover:bg-white text-[#7B122F] border border-white/70 min-w-[200px] h-12 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02]"
                   size="lg"
                 >
@@ -599,21 +690,41 @@ export default function IRSOverview({
         {canSeeAnalytics && (
           <div id="reports-analytics" className="mt-10 pb-8 scroll-mt-20">
             <div className="mb-8" ref={statsRef}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-10 w-1.5 rounded-full bg-[#7B122F]" />
-                <h2 className="text-2xl sm:text-[26px] font-black text-slate-900 leading-tight">
-                  Incident Status Overview
-                </h2>
+              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex items-center gap-3 xl:pb-1">
+                  <div className="h-10 w-1.5 rounded-full bg-[#7B122F]" />
+                  <h2 className="text-2xl sm:text-[26px] font-black text-slate-900 leading-tight">
+                    Incident Status Overview
+                  </h2>
+                </div>
+
+                <div className="w-full xl:w-[295px]">
+                  <select
+                    id="region-filter"
+                    value={selectedRegion}
+                    onChange={(e) => setSelectedRegion(e.target.value)}
+                    className="h-11 w-full rounded-[16px] border border-white/80 bg-white/95 px-4 text-[14px] font-semibold text-slate-800 shadow-[0_8px_20px_rgba(0,0,0,0.10)] outline-none transition-all duration-200 hover:shadow-[0_10px_24px_rgba(0,0,0,0.14)] focus:border-[#7B122F] focus:ring-2 focus:ring-[#7B122F]/20"
+                  >
+                    <option value="ALL">Filter by Region — All Regions</option>
+                    {regionOptions
+                      .filter((region) => region !== 'ALL')
+                      .map((region) => (
+                        <option key={region} value={region}>
+                          {region}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
                 {/* Total Reports */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-[#7B122F]/15 to-white border border-[#7B122F]/20`}>
+                <Card className={`${statCardBase} bg-gradient-to-br from-blue-500/20 via-blue-100/40 to-white border border-blue-500/30`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-[#7B122F]/25 flex items-center justify-center shadow-md">
-                          <FileText className="w-6 h-6 text-[#7B122F]" />
+                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                          <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Total Reports</p>
@@ -626,9 +737,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-[#7B122F]/15 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-blue-500/20 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-[#7B122F]"
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
                         style={{
                           width: statsInView ? '100%' : '0%',
                           transition: 'width 2000ms cubic-bezier(0.16, 1, 0.3, 1)',
@@ -639,12 +750,12 @@ export default function IRSOverview({
                 </Card>
 
                 {/* Active Incidents */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-blue-500/15 to-white border border-blue-500/20`}>
+                <Card className={`${statCardBase} bg-gradient-to-br from-blue-500/20 via-blue-100/40 to-white border border-blue-500/30`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-blue-500/25 flex items-center justify-center shadow-md">
-                          <Clock3 className="w-6 h-6 text-blue-600" />
+                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
+                          <Clock3 className="w-6 h-6 text-white" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Active Incidents</p>
@@ -657,9 +768,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-blue-500/15 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-blue-500/20 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-blue-500"
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
                         style={{
                           width: statsInView
                             ? `${incidentStats.total ? Math.round((incidentStats.active / incidentStats.total) * 100) : 0}%`
@@ -705,12 +816,12 @@ export default function IRSOverview({
                 </Card>
 
                 {/* Locations */}
-                <Card className={`${statCardBase} bg-gradient-to-br from-purple-500/15 to-white border border-purple-500/20`}>
+                <Card className={`${statCardBase} bg-gradient-to-br from-green-500/20 via-green-100/40 to-white border border-green-500/30`}>
                   <CardBody className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-2xl bg-purple-500/25 flex items-center justify-center shadow-md">
-                          <Layers className="w-6 h-6 text-purple-600" />
+                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
+                          <Layers className="w-6 h-6 text-white" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Locations</p>
@@ -723,9 +834,9 @@ export default function IRSOverview({
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-purple-500/15 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-green-500/20 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-purple-500"
+                        className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-600"
                         style={{
                           width: statsInView
                             ? `${incidentStats.total ? Math.round((incidentStats.locations / incidentStats.total) * 100) : 0}%`
@@ -745,6 +856,7 @@ export default function IRSOverview({
                 <div className="h-10 w-1.5 rounded-full bg-[#7B122F]" />
                 <h2 className="text-2xl sm:text-[26px] font-black text-slate-900 leading-tight">
                   Incidents by Location
+                  {selectedRegion !== 'ALL' ? ` — ${selectedRegion}` : ''}
                 </h2>
               </div>
 

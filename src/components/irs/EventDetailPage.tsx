@@ -447,9 +447,9 @@ const EventDetailPage = ({ teamDeployed }: EventPageProps) => {
                             variant="solid"
                             className="bg-rose-800 text-white hover:bg-rose-900 shrink-0"
                             startContent={<ArrowLeft className="w-4 h-4" />}
-                            onPress={() => router.back()}
+                            onPress={() => router.push('/incidents')}
                         >
-                            Back to MiSalud Dashboard
+                            Back to See Incidents
                         </Button>
                     </div>
                 </div>

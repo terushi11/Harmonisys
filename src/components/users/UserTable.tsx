@@ -162,6 +162,8 @@ const UserTable = () => {
     fromRole: UserType;
     toRole: UserType;
     requestedMhpssLevel?: string | null;
+    requestedResponderOrganization?: string | null;
+    requestedMhpssCertificateFileUrl?: string | null;
     status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
     createdAt: string;
     user: {
@@ -414,12 +416,14 @@ const UserTable = () => {
     }
   };
 
-  const tableCols = [
+    const tableCols = [
     { key: 'name', name: 'Name' },
     { key: 'email', name: 'Email' },
     { key: 'role', name: 'Role' },
     { key: 'mhpssLevel', name: 'MHPSS Level' },
-    { key: 'region', name: 'Region' }, 
+    { key: 'responderOrganization', name: 'Organization' },
+    { key: 'mhpssCertificateFileUrl', name: 'Certificate' },
+    { key: 'region', name: 'Region' },
     { key: 'createdAt', name: 'Created' },
     { key: 'actions', name: 'Actions' },
   ];
@@ -450,18 +454,12 @@ const UserTable = () => {
           );
 
         case 'email':
-        return (
-          <TableCell className="w-[240px]">
-            <div className="flex items-center gap-2 max-w-[240px]">
-              <div className="w-8 h-8 rounded-full flex shrink-0 items-center justify-center text-white font-bold text-sm shadow-md border border-white/40 bg-gradient-to-br from-[#4A0707] via-[#6B0F0F] to-[#A11B1B]">
-                {item.email.charAt(0).toUpperCase()}
-              </div>
-
+          return (
+            <TableCell className="w-[240px] text-center">
               <span className="font-medium text-slate-700 truncate">
                 {item.email}
               </span>
-            </div>
-          </TableCell>
+            </TableCell>
         );
 
         case 'role':
@@ -636,6 +634,33 @@ const UserTable = () => {
                     </TableCell>
                   );
                 }
+
+                        case 'responderOrganization':
+          return (
+            <TableCell className="text-center">
+              <span className="text-sm text-slate-700">
+                {item.responderOrganization || '—'}
+              </span>
+            </TableCell>
+          );
+
+        case 'mhpssCertificateFileUrl':
+          return (
+            <TableCell className="text-center">
+              {item.mhpssCertificateFileUrl ? (
+                <a
+                  href={item.mhpssCertificateFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#7A0C1E] underline underline-offset-4"
+                >
+                  View Certificate
+                </a>
+              ) : (
+                <span className="text-sm text-slate-400">—</span>
+              )}
+            </TableCell>
+          );
 
         case 'region':
         return (
@@ -1104,6 +1129,27 @@ const UserTable = () => {
                                 >
                                   MHPSS: {r.requestedMhpssLevel}
                                 </Chip>
+                              ) : null}
+
+                              {r.requestedResponderOrganization ? (
+                                <Chip
+                                  size="sm"
+                                  variant="flat"
+                                  className="bg-sky-100 text-sky-700 border border-sky-200"
+                                >
+                                  Org: {r.requestedResponderOrganization}
+                                </Chip>
+                              ) : null}
+
+                              {r.requestedMhpssCertificateFileUrl ? (
+                                <a
+                                  href={r.requestedMhpssCertificateFileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-[#7A0C1E] underline underline-offset-4"
+                                >
+                                  View Certificate
+                                </a>
                               ) : null}
                             </div>
 

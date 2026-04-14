@@ -141,7 +141,11 @@ const Header: React.FC<HeaderProps> = ({ session }) => {
   const match =
     pathname?.match(/^\/overview\/([^/]+)/) ||
     pathname?.match(/^\/(misalud|irs|unahon|hazardhunter|redas)/);
-  const activeTool = match?.[1];
+
+  const activeTool =
+    pathname?.startsWith('/incidents')
+      ? 'irs'
+      : match?.[1];
 
   const isDashboard = pathname === '/dashboard';
   const isHome = pathname === '/' || (!activeTool && !isDashboard);

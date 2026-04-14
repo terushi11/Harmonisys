@@ -11,6 +11,8 @@ declare module 'next-auth' {
             competency: number | null;
             mhpssLevel: MhpssLevel | null;
             region: string | null;
+            fullAddress: string | null;
+            responderOrganization: string | null;
             gender: Gender | null;
             image: string | null;
         } & DefaultSession['user'];
@@ -25,6 +27,8 @@ declare module 'next-auth/jwt' {
         competency: number | null;
         mhpssLevel: MhpssLevel | null;
         region: string | null;
+        fullAddress: string | null;
+        responderOrganization: string | null;
         gender: Gender | null;
         image: string | null;
     }

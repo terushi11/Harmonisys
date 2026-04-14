@@ -26,6 +26,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.competency = existingUser.competency;
             token.mhpssLevel = existingUser.mhpssLevel;
             token.region = existingUser.region;
+            token.fullAddress = existingUser.fullAddress;
+            token.responderOrganization = existingUser.responderOrganization;
             token.gender = existingUser.gender;
 
             return token;
@@ -41,6 +43,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     competency: token.competency,
                     mhpssLevel: token.mhpssLevel,
                     region: token.region,
+                    fullAddress: token.fullAddress,
+                    responderOrganization: token.responderOrganization,
                     gender: token.gender,
                     image: token.image,
                 },

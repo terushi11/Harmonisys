@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Button, Select, SelectItem, Checkbox } from '@heroui/react';
-import { Mail, Lock, User, Users, MapPin, Briefcase, HeartPulse } from 'lucide-react';
+import { Mail, Lock, User, Users, MapPin, Briefcase, HeartPulse, Building2, Upload } from 'lucide-react';
 import AuthFloatingInput from './AuthFloatingInput';
 import Link from "next/link";
 
@@ -82,6 +82,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [gender, setGender] = useState('');
   const [region, setRegion] = useState('');
   const [mhpssLevel, setMhpssLevel] = useState('');
+  const [mhpssCertificateFile, setMhpssCertificateFile] = useState<File | null>(null);
+  const [responderOrganization, setResponderOrganization] = useState('');
+  const mhpssCertificateInputRef = useRef<HTMLInputElement | null>(null);
   const [role, setRole] = useState('');
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
   const [email, setEmail] = useState('');
@@ -96,25 +99,45 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    if (role === 'RESPONDER') {
+      if (!mhpssLevel) {
+        setErrorMessage('Please select your MHPSS Level.');
+        return;
+      }
+
+      if (!mhpssCertificateFile) {
+        setErrorMessage('Please upload your certificate or proof of MHPSS Level.');
+        return;
+      }
+
+      if (!responderOrganization.trim()) {
+        setErrorMessage('Please enter your responder organization or affiliation.');
+        return;
+      }
+    }
+
     startTransition(async () => {
       try {
+        const formData = new FormData();
+        formData.append('firstName', firstName);
+        formData.append('lastName', lastName);
+        formData.append('gender', gender);
+        formData.append('region', region);
+        formData.append('mhpssLevel', mhpssLevel);
+        formData.append('role', role);
+        formData.append('privacyPolicyAccepted', String(privacyPolicyAccepted));
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('confirmPassword', confirmPassword);
+        formData.append('responderOrganization', responderOrganization);
+
+        if (mhpssCertificateFile) {
+          formData.append('mhpssCertificateFile', mhpssCertificateFile);
+        }
+
         const res = await fetch('/api/auth/register', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            firstName,
-            lastName,
-            gender,
-            region,
-            mhpssLevel,
-            role,
-            privacyPolicyAccepted,
-            email,
-            password,
-            confirmPassword,
-          }),
+          body: formData,
         });
 
         const data = await res.json();
@@ -130,11 +153,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
         setGender('');
         setRegion('');
         setMhpssLevel('');
+        setMhpssCertificateFile(null);
+        setResponderOrganization('');
         setRole('');
         setPrivacyPolicyAccepted(false);
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+
+        if (mhpssCertificateInputRef.current) {
+          mhpssCertificateInputRef.current.value = '';
+        }
 
         onSuccess?.();
       } catch {
@@ -225,6 +254,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
 
                 if (value !== 'RESPONDER') {
                   setMhpssLevel('');
+                  setMhpssCertificateFile(null);
+                  setResponderOrganization('');
+
+                  if (mhpssCertificateInputRef.current) {
+                    mhpssCertificateInputRef.current.value = '';
+                  }
                 }
               }}
               variant="bordered"
@@ -244,52 +279,102 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
             </Select>
 
             {role === 'RESPONDER' && (
-              <Select
-                placeholder="MHPSS Level"
-                startContent={
-                  !mhpssLevel ? <HeartPulse className="w-5 h-5 text-white/80" /> : null
-                }
-                selectedKeys={mhpssLevel ? [mhpssLevel] : []}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0];
-                  setMhpssLevel(String(value || ''));
-                }}
-                variant="bordered"
-                classNames={selectClassNames}
-                disallowEmptySelection={false}
-                renderValue={(items) => (
-                  <span className="text-[1.05rem] font-medium text-white">
-                    {items[0]?.textValue}
-                  </span>
-                )}
-              >
-                {mhpssLevelOptions.map((item) => (
-                  <SelectItem key={item.key} classNames={itemClassNames}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </Select>
+              <>
+                <Select
+                  placeholder="MHPSS Level"
+                  startContent={
+                    !mhpssLevel ? <HeartPulse className="w-5 h-5 text-white/80" /> : null
+                  }
+                  selectedKeys={mhpssLevel ? [mhpssLevel] : []}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0];
+                    setMhpssLevel(String(value || ''));
+                  }}
+                  variant="bordered"
+                  classNames={selectClassNames}
+                  disallowEmptySelection={false}
+                  renderValue={(items) => (
+                    <span className="text-[1.05rem] font-medium text-white">
+                      {items[0]?.textValue}
+                    </span>
+                  )}
+                >
+                  {mhpssLevelOptions.map((item) => (
+                    <SelectItem key={item.key} classNames={itemClassNames}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </Select>
+
+                <div className="w-full">
+                  <label
+                    htmlFor="mhpssCertificateFile"
+                    className="
+                      flex min-h-[64px] w-full cursor-pointer items-center justify-between
+                      rounded-[22px] border border-white/25 bg-white/10 px-5
+                      text-white transition-all duration-200 hover:border-white/40
+                    "
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <Upload className="h-5 w-5 shrink-0 text-white/80" />
+                      <span className="truncate text-[1.05rem] text-white/90">
+                        {mhpssCertificateFile
+                          ? mhpssCertificateFile.name
+                          : 'Upload Certificate / Proof of MHPSS Level'}
+                      </span>
+                    </div>
+
+                    <span className="ml-4 shrink-0 text-sm font-medium text-yellow-300">
+                      Choose File
+                    </span>
+                  </label>
+
+                  <input
+                    ref={mhpssCertificateInputRef}
+                    id="mhpssCertificateFile"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setMhpssCertificateFile(file);
+                    }}
+                  />
+                </div>
+
+                <AuthFloatingInput
+                  type="text"
+                  label="Responder Organization / Affiliation"
+                  value={responderOrganization}
+                  onChange={setResponderOrganization}
+                  icon={<Building2 className="w-5 h-5" />}
+                  required={role === 'RESPONDER'}
+                  autoComplete="off"
+                />
+              </>
             )}
           </div>
 
           <div className="flex justify-end">
-            <Checkbox
-              color="warning"
-              isSelected={privacyPolicyAccepted}
-              onValueChange={setPrivacyPolicyAccepted}
-              classNames={{
-                base: "pt-1",
-                label: "text-white/90 text-sm flex items-center gap-1",
-              }}
-            >
-              I agree to the{" "}
-              <Link
-                href={TERMS_AND_PRIVACY_URL}
-                className="text-yellow-300 hover:text-yellow-200 underline underline-offset-4"
-              >
-                Privacy Policy
-              </Link>
-            </Checkbox>
+            <div className="flex items-center gap-3 pt-1">
+              <Checkbox
+                color="warning"
+                isSelected={privacyPolicyAccepted}
+                onValueChange={setPrivacyPolicyAccepted}
+              />
+
+              <div className="text-sm text-white/90">
+                I agree to the{" "}
+                <Link
+                  href={TERMS_AND_PRIVACY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-yellow-300 hover:text-yellow-200 underline underline-offset-4"
+                >
+                  Privacy Policy
+                </Link>
+              </div>
+            </div>
           </div>
 
         <AuthFloatingInput

@@ -823,7 +823,7 @@ const HazardHunter = () => {
             <button
                 type="button"
                 onClick={onClick}
-                className="w-full text-left rounded-2xl border border-[#eadbc7] bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition-all duration-200 p-4"
+                className="group relative w-full text-left rounded-2xl border border-[#eadbc7] bg-white/90 hover:bg-white shadow-sm hover:shadow-md transition-all duration-200 p-4 overflow-hidden"
             >
                 <div className="flex items-start gap-3">
                     <div className="rounded-xl bg-[#f8f1e8] border border-[#eadbc7] shrink-0 flex items-center justify-center w-10 h-10">
@@ -870,6 +870,11 @@ const HazardHunter = () => {
                             </Chip>
                         </div>
                     </div>
+                </div>
+                <div className="pointer-events-none absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center text-center px-4">
+                    <p className="text-white text-xs font-semibold">
+                        Click to view full details
+                    </p>
                 </div>
             </button>
         );
@@ -945,8 +950,8 @@ const HazardHunter = () => {
         <Card
             isPressable
             onPress={onClick}
-            className="h-full min-h-[340px] rounded-3xl border border-[#eadbc7] bg-white/90 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-visible cursor-pointer"
-        >
+            className="group relative h-full min-h-[340px] rounded-3xl border border-[#eadbc7] bg-white/90 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
+            >
             <CardHeader className="px-5 pt-5 pb-4 sm:px-6 sm:pt-6">
                 <div className="flex items-center gap-3 w-full min-w-0">
                     <div className="rounded-2xl bg-[#f8f1e8] border border-[#eadbc7] shrink-0 flex items-center justify-center w-11 h-11">
@@ -1004,6 +1009,12 @@ const HazardHunter = () => {
                     </Chip>
                 </div>
             </CardBody>
+            {/* Hover Overlay */}
+            <div className="pointer-events-none absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center text-center px-6">
+                <p className="text-white text-sm font-semibold">
+                    Click to see full details
+                </p>
+            </div>
         </Card>
     );
 };

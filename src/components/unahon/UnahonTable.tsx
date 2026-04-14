@@ -13,7 +13,7 @@ import {
     CardBody,
 } from '@heroui/react';
 import { columns, unahonSections } from '@/constants/index';
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { UnahonTableProps, Row, Column } from '@/types';
 import UnahonModal from './UnahonModal';
 
@@ -44,9 +44,11 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
     goToConfidentialPage,
 }) => {
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
+    const currentSection = useMemo(() => unahonSections[index], [index]);
     const interventionsIndices = useRef<number[]>([]);
     const selectedRow = useRef<number>(1);
-    const interventionIndex = useRef<number>(0); // Changed to useRef
+    const interventionIndex = useRef<number>(0);
+    const isLastAssessmentSection = index === unahonSections.length - 1;
 
     const handleCheckboxChange = useCallback(
         (rowNumber: number, column: number, isSelected: boolean) => {
@@ -64,6 +66,21 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
         handleChecklistChange(selectedRow.current, 0);
     };
 
+    const isDisagreeSequentiallyEnabled = useCallback(
+        (rowNumber: number) => {
+            if (isViewOnly) return false;
+
+            // First row is always allowed
+            if (rowNumber === 1) return true;
+
+            const previousRow = checklist[index][rowNumber - 1];
+
+            // Enable current "No" only if previous row is already answered "No"
+            return previousRow?.[1] === true;
+        },
+        [checklist, index, isViewOnly]
+    );
+
     const renderCell = useCallback(
         (row: Row, columnKey: React.Key) => {
             switch (columnKey) {
@@ -71,15 +88,12 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                     if (row.number === 1) {
                         return (
                             <TableCell
-                                rowSpan={unahonSections[index].questions.length}
-                                className={`${bgColorClasses[unahonSections[index].color]} shadow-lg`}
+                                rowSpan={currentSection.questions.length}
+                                className={`${bgColorClasses[currentSection.color]} shadow-lg`}
                             >
                                 <div className="flex items-center justify-center h-full">
                                     <div className="text-white font-bold text-lg transform -rotate-90 whitespace-nowrap">
-                                        {unahonSections[
-                                            index
-                                        ].color.toUpperCase()}{' '}
-                                        LEVEL
+                                        {currentSection.color.toUpperCase()} LEVEL
                                     </div>
                                 </div>
                             </TableCell>
@@ -97,7 +111,7 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                         <TableCell className="p-4">
                             <div className="flex flex-row gap-4 items-start">
                                 <div
-                                    className={`flex-shrink-0 w-8 h-8 rounded-full ${bgColorClasses[unahonSections[index].color]} flex items-center justify-center text-white font-bold text-sm shadow-md`}
+                                    className={`flex-shrink-0 w-8 h-8 rounded-full ${bgColorClasses[currentSection.color]} flex items-center justify-center text-white font-bold text-sm shadow-md`}
                                 >
                                     {row.number}
                                 </div>
@@ -139,7 +153,14 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                         <TableCell className="p-4 text-center">
                             <div className="flex justify-center">
                                 <Checkbox
-                                    isDisabled={isViewOnly}
+                                    isDisabled={
+                                        isViewOnly ||
+                                        isLastAssessmentSection ||
+                                        (
+                                            !isDisagreeSequentiallyEnabled(row.number) &&
+                                            !checklist[index][row.number][1]
+                                        )
+                                    }
                                     isSelected={checklist[index][row.number][1]}
                                     onValueChange={(isSelected) =>
                                         handleCheckboxChange(
@@ -161,11 +182,11 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                     if (row.span) {
                         interventionIndex.current =
                             (interventionIndex.current %
-                                unahonSections[index].interventions.length) +
+                                currentSection.interventions.length) +
                             1;
 
                         const intervention =
-                            unahonSections[index].interventions[
+                            currentSection.interventions[
                                 interventionIndex.current - 1
                             ];
 
@@ -221,22 +242,20 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
     return (
         <div>
             <Card
-                className={`mb-6 bg-gradient-to-r ${sectionBgClasses[unahonSections[index].color]} border ${borderColorClasses[unahonSections[index].color]} shadow-lg`}
+                className={`mb-6 bg-gradient-to-r ${sectionBgClasses[currentSection.color]} border ${borderColorClasses[currentSection.color]} shadow-lg`}
             >
                 <CardBody className="p-4">
                     <div className="flex items-center gap-3">
                         <div
-                            className={`w-4 h-4 rounded-full ${bgColorClasses[unahonSections[index].color]} shadow-md`}
+                            className={`w-4 h-4 rounded-full ${bgColorClasses[currentSection.color]} shadow-md`}
                         ></div>
                         <h2 className="text-xl font-bold text-slate-800">
-                            {unahonSections[index].color
-                                .charAt(0)
-                                .toUpperCase() +
-                                unahonSections[index].color.slice(1)}{' '}
+                            {currentSection.color.charAt(0).toUpperCase() +
+                                currentSection.color.slice(1)}{' '}
                             Level Assessment
                         </h2>
                         <div
-                            className={`px-3 py-1 rounded-full text-xs font-bold text-white ${bgColorClasses[unahonSections[index].color]} shadow-md`}
+                            className={`px-3 py-1 rounded-full text-xs font-bold text-white ${bgColorClasses[currentSection.color]} shadow-md`}
                         >
                             Section {index + 1}
                         </div>
@@ -248,7 +267,7 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                 <CardBody className="p-0">
                     <Table
                         removeWrapper
-                        aria-label={`Unahon ${unahonSections[index].color} Category`}
+                        aria-label={`Unahon ${currentSection.color} Category`}
                         classNames={{
                             table: 'border-collapse',
                             td: `border border-slate-200 bg-white/50`,
@@ -268,7 +287,7 @@ const UnahonTable: React.FC<UnahonTableProps> = ({
                             )}
                         </TableHeader>
                         <TableBody>
-                            {unahonSections[index].questions.map((item) => (
+                            {currentSection.questions.map((item) => (
                                 <TableRow
                                     key={item.number}
                                     className="hover:bg-slate-50/50 transition-colors duration-200"

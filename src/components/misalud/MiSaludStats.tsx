@@ -1,6 +1,6 @@
 import type { Team, Event } from '@/types';
 import { Card, CardBody, Skeleton } from '@heroui/react';
-import { CalendarIcon, ClockIcon, UsersIcon } from 'lucide-react';
+import { CalendarIcon, ClockIcon, UsersIcon, MapPinIcon } from 'lucide-react';
 import { QuestionnaireData, QuestionnaireSubmission } from './MiSalud';
 import { Incident } from '@/types';
 
@@ -55,7 +55,13 @@ const MiSaludStats = ({
     return (
         <div className="mb-8">
             <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <div className="w-1 h-8 bg-gradient-to-b from-emerald-500 to-teal-600 rounded-full"></div>
+                <div
+                    className={`w-1 h-8 rounded-full ${
+                        selectedView === 'events'
+                            ? 'bg-gradient-to-b from-[#7B122F] to-[#A3153D]'
+                            : 'bg-gradient-to-b from-emerald-500 to-teal-600'
+                    }`}
+                ></div>
                 Dashboard Overview
             </h2>
 
@@ -96,7 +102,6 @@ const MiSaludStats = ({
                     ))
                 ) : (
                     <>
-                        {/* Active Teams/Items */}
                         <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
@@ -105,27 +110,37 @@ const MiSaludStats = ({
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
-                                            {isArchiveView
+                                            {selectedView === 'events'
+                                                ? 'Teams Deployed'
+                                                : isArchiveView
                                                 ? 'Archived Teams'
                                                 : 'Active Teams'}
                                         </h3>
                                         <p className="text-sm text-slate-500">
-                                            Currently managed
+                                            {selectedView === 'events'
+                                                ? 'Teams with incident records'
+                                                : 'Currently managed'}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="mb-3">
                                     <span className="text-4xl font-bold text-slate-900">
-                                        {isArchiveView
+                                        {selectedView === 'events'
+                                            ? filteredEvents.length
+                                            : isArchiveView
                                             ? teamsData.length
                                             : teamGroups.length}
                                     </span>
                                     <span className="text-lg text-slate-500 ml-2">
-                                        teams
+                                        {selectedView === 'events' ? 'teams' : 'teams'}
                                     </span>
                                 </div>
                                 <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full w-full transition-all duration-500"></div>
+                                    <div
+                                        className={`h-2 rounded-full w-full transition-all duration-500 ${
+                                            'bg-gradient-to-r from-blue-500 to-blue-600'
+                                        }`}
+                                    ></div>
                                 </div>
                             </CardBody>
                         </Card>
@@ -134,8 +149,16 @@ const MiSaludStats = ({
                         <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-green-100 rounded-xl">
-                                        <CalendarIcon className="w-8 h-8 text-green-600" />
+                                    <div
+                                        className={`p-3 rounded-xl ${
+                                            selectedView === 'events' ? 'bg-[#7B122F]/10' : 'bg-green-100'
+                                        }`}
+                                    >
+                                        <CalendarIcon
+                                            className={`w-8 h-8 ${
+                                                selectedView === 'events' ? 'text-[#7B122F]' : 'text-green-600'
+                                            }`}
+                                        />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
@@ -166,8 +189,10 @@ const MiSaludStats = ({
                                     </span>
                                 </div>
                                 <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full w-full transition-all duration-500"></div>
-                                </div>
+  <div
+    className="h-2 rounded-full w-full transition-all duration-500 bg-gradient-to-r from-[#7B122F] to-[#A3153D]"
+  ></div>
+</div>
                             </CardBody>
                         </Card>
 
@@ -175,8 +200,16 @@ const MiSaludStats = ({
                         <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-purple-100 rounded-xl">
-                                        <ClockIcon className="w-8 h-8 text-purple-600" />
+                                    <div
+                                        className={`p-3 rounded-xl ${
+                                            'bg-green-100'
+                                        }`}
+                                    >
+                                        <ClockIcon
+                                            className={`w-8 h-8 ${
+                                                'text-green-600'
+                                            }`}
+                                        />
                                     </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
@@ -198,7 +231,11 @@ const MiSaludStats = ({
                                     </span>
                                 </div>
                                 <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full w-full transition-all duration-500"></div>
+                                    <div
+                                        className={`h-2 rounded-full w-full transition-all duration-500 ${
+                                            'bg-gradient-to-r from-green-500 to-green-600'
+                                        }`}
+                                    ></div>
                                 </div>
                             </CardBody>
                         </Card>
