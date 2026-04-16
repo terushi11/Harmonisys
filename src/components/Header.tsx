@@ -601,7 +601,7 @@ const toolsCssVars = {
                   "
                 >
                   <span className="hidden sm:inline bg-gradient-to-r from-[#7A0C1E] via-[#5B0A0A] to-[#3B0505] bg-clip-text text-transparent">
-                    Sign In / Log In
+                    Log In
                   </span>
                   <span className="sm:hidden bg-gradient-to-r from-[#7A0C1E] via-[#5B0A0A] to-[#3B0505] bg-clip-text text-transparent">
                     Sign In

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { ChevronDown, Link2Off, Link2, ArrowLeft } from 'lucide-react';
+import { ChevronDown, Link2, ArrowLeft } from 'lucide-react';
 import {
     Dropdown,
     DropdownTrigger,
@@ -98,11 +98,18 @@ const REDAS = () => {
     }
 
     // Filter data based on search query
-    const filteredData = data.filter(
-        (item) =>
+    const filteredData = data.filter((item) => {
+        const hasValidArticleLink =
+            item.article_link &&
+            item.article_link.trim() !== '' &&
+            item.article_link !== 'N/A';
+
+        const matchesSearch =
             item.date.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            selectedPlace?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+            selectedPlace?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        return hasValidArticleLink && matchesSearch;
+    });
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -540,31 +547,17 @@ const REDAS = () => {
                                                 </div>
 
                                                 <div className="flex items-center gap-2">
-                                                    {item.article_link ===
-                                                    'N/A' ? (
-                                                        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-full">
-                                                            <Link2Off className="w-4 h-4 text-red-500" />
-                                                            <span className="text-xs font-medium text-red-600">
-                                                                No Link
-                                                            </span>
-                                                        </div>
-                                                    ) : (
-                                                        <Button
-                                                            as={Link}
-                                                            href={
-                                                                item.article_link
-                                                            }
-                                                            endContent={
-                                                                <Link2 className="h-4 w-4" />
-                                                            }
-                                                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            size="sm"
-                                                        >
-                                                            Visit Article
-                                                        </Button>
-                                                    )}
+                                                    <Button
+                                                        as={Link}
+                                                        href={item.article_link}
+                                                        endContent={<Link2 className="h-4 w-4" />}
+                                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        size="sm"
+                                                    >
+                                                        Visit Article
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>
