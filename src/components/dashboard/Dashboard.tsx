@@ -352,7 +352,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             idleTimer = setTimeout(() => {
                 setShowResponderTools(false);
                 setIsResponderIdleOpen(true);
-            }, 30000);
+            }, 10000);
         };
 
         const handleUserActivity = () => {
