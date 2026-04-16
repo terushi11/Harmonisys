@@ -4,14 +4,15 @@ import { auth } from '@/lib/auth';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
+  const { id } = await params;
 
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const incident = await prisma.incident.findUnique({ where: { id: params.id } });
+  const incident = await prisma.incident.findUnique({ where: { id } });
   if (!incident) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return NextResponse.json({ data: incident });
@@ -19,9 +20,10 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
+  const { id } = await params;
 
   if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -33,7 +35,7 @@ export async function PATCH(
   };
 
   const updated = await prisma.incident.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(status ? { status } : {}),
       ...(typeof reviewNote === 'string' ? { reviewNote } : {}),

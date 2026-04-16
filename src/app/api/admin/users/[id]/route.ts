@@ -5,10 +5,11 @@ import { UserType } from '@prisma/client';
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
+    const { id } = await params;
 
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function DELETE(
       );
     }
 
-    const userId = params.id;
+    const userId = id;
 
     if (!userId) {
       return NextResponse.json(
@@ -53,7 +54,6 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (tx) => {
-      // delete incidents
       await tx.incident.deleteMany({
         where: { userId },
       });
@@ -64,10 +64,10 @@ export async function DELETE(
         },
       });
 
-      // delete submissions (MiSalud)
       await tx.submission.deleteMany({
         where: { userId },
       });
+
       await tx.roleChangeRequest.updateMany({
         where: { reviewedById: userId },
         data: { reviewedById: null },

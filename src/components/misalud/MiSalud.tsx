@@ -200,6 +200,8 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     };
 
     const fetchMembership = async () => {
+        setLoadingMembership(true);
+
         if (isAdminView) {
             setMembershipStatus('APPROVED');
             setMembershipData({
@@ -751,7 +753,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                                         )}
 
                                         <Button
-                                            color="danger"
+                                            className="bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-800 hover:to-emerald-700 text-white font-bold"
                                             onPress={() => {
                                                 setShowRegistrationModal(true);
                                             }}

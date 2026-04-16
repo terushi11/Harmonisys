@@ -27,8 +27,6 @@ const CardContent: React.FC<CardContentProps & CardContentExtraProps> = ({
 const iconKey = (carouselItem as any).icon as keyof typeof iconMap | undefined;
 const Icon = iconKey && iconMap[iconKey] ? iconMap[iconKey] : FileText;
 
-console.log('CARD:', carouselItem.title, 'icon=', (carouselItem as any).icon);
-
   return (
     <div className="flex h-full flex-col p-5">
       {/* Header: icon + title */}

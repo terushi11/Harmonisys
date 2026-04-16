@@ -41,6 +41,7 @@ import {
   RefreshCcw,
   Search,
   Trash2,
+  ArrowLeft,
 } from 'lucide-react';
 import useSWR from 'swr';
 import { unahonDashboardCols } from '@/constants';
@@ -468,6 +469,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
                   <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end">
                     <Button
                       variant="light"
+                      startContent={<ArrowLeft className="w-4 h-4" />}
                       className="
                         h-12 px-6
                         bg-white/15 text-white

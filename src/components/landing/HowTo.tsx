@@ -180,16 +180,16 @@ const About = () => {
                 <div className="relative w-full h-full flex items-center justify-center px-14 py-5">
                   <div className="relative w-full h-full drop-shadow-[0_12px_25px_rgba(0,0,0,0.35)]">
 
-
-  <Image
-    src={s.src}
-    alt={s.alt}
-    fill
-    sizes="(max-width: 1024px) 100vw, 50vw"
-    className="object-contain object-center"
-    priority={active === 0}
-  />
-</div>
+                <Image
+                  src={s.src}
+                  alt={s.alt}
+                  fill
+                  sizes="(max-width: 640px) 90vw, (max-width: 1024px) 70vw, 510px"
+                  className="object-contain object-center"
+                  priority={idx === 0}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                />
+              </div>
 
                 </div>
               </div>

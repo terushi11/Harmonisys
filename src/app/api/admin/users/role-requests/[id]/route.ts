@@ -5,8 +5,12 @@ import { RequestStatus, UserType } from "@prisma/client";
 
 type PatchBody = { action?: "APPROVE" | "REJECT" };
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const session = await auth();
+  const { id } = await params;
 
   if (!session?.user?.id) {
     return NextResponse.json(
@@ -22,7 +26,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     );
   }
 
-  const { id } = params;
   const body = (await req.json().catch(() => null)) as PatchBody | null;
   const action = body?.action;
 

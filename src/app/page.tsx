@@ -1,12 +1,24 @@
 import { HeroUIProvider } from '@heroui/react';
+import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
-import Footer from '@/components/landing/Footer';
 import Hero from '@/components/landing/Hero';
-import HowTo from '@/components/landing/HowTo';
-import Feature from '@/components/landing/Feature';
-import Carousel from '@/components/landing/carousel/Carousel';
-import ChatWidget from '@/components/chatbot/ChatWidget';
 import { auth } from '@/lib/auth';
+
+const HowTo = dynamic(() => import('@/components/landing/HowTo'), {
+  loading: () => <div className="h-[500px] bg-[#7A1111]" />,
+});
+
+const Carousel = dynamic(() => import('@/components/landing/carousel/Carousel'), {
+  loading: () => <div className="h-[420px] bg-white" />,
+});
+
+const Feature = dynamic(() => import('@/components/landing/Feature'), {
+  loading: () => <div className="h-[320px] bg-white" />,
+});
+
+const Footer = dynamic(() => import('@/components/landing/Footer'), {
+  loading: () => <div className="h-[220px] bg-[#18060C]" />,
+});
 
 const Home = async () => {
   const session = await auth();
@@ -24,9 +36,6 @@ const Home = async () => {
       </main>
 
       <Footer isAuthenticated={isAuthenticated} />
-
-      {/* Floating chatbot */}
-      <ChatWidget />
     </HeroUIProvider>
   );
 };

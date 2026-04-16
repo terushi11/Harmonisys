@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Button, Card, CardBody, Input } from '@heroui/react';
 import { MessageCircle, X, Send, ShieldCheck, AlertTriangle } from 'lucide-react';
@@ -21,6 +21,13 @@ function toApiHistory(msgs: ChatMsg[]): ApiHistoryMsg[] {
   }));
 }
 
+const QUICK_CHIPS = [
+  'How do I report an incident in IRS?',
+  'What is Unahon used for?',
+  'What is Mi Salud?',
+  'What does HazardHunter check?',
+];
+
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -31,7 +38,7 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
 
-  const theme = useMemo(() => {
+  const theme = (() => {
     const p = (pathname || '/').toLowerCase();
 
     // default (home / general pages)
@@ -94,7 +101,7 @@ export default function ChatWidget() {
     }
 
     return { headerGradient, userBubble, accent, alertBg, alertBorder };
-  }, [pathname]);
+  })();
 
   const [messages, setMessages] = useState<ChatMsg[]>(() => [
     {
@@ -119,16 +126,6 @@ export default function ChatWidget() {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, open]);
-
-  const quickChips = useMemo(
-    () => [
-      'How do I report an incident in IRS?',
-      'What is Unahon used for?',
-      'What is Mi Salud?',
-      'What does HazardHunter check?',
-    ],
-    []
-  );
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -304,7 +301,7 @@ export default function ChatWidget() {
               {/* Quick chips */}
               <div className="px-4 pb-2 pt-0 bg-white">
                 <div className="flex flex-wrap gap-2">
-                  {quickChips.map((q) => (
+                  {QUICK_CHIPS.map((q) => (
                     <button
                       key={q}
                       className="text-[11px] px-3 py-1.5 rounded-full border transition"

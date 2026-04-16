@@ -581,9 +581,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         subtitleText: 'text-[#8E1023]',
     },
     {
-        title: 'Health Assessments',
+        title: 'Mi Salud Records',
         value: stats?.overview.totalQuestionnaires || 0,
-        subtitle: 'Completed forms',
+        subtitle: 'Health Assessments',
         icon: <Heart className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]',
         cardBg: 'bg-gradient-to-br from-[#7A0C1E]/8 via-[#7A0C1E]/4 to-white',
@@ -592,9 +592,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         subtitleText: 'text-[#66101E]',
     },
     {
-        title: 'Unahon Screenings',
+        title: 'Unahon Records',
         value: stats?.overview.totalUnahonAssessments || 0,
-        subtitle: 'Mental screening',
+        subtitle: 'Submitted Assessments',
         icon: <ShieldCheck className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
         cardBg: 'bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white',
@@ -629,17 +629,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         subtitleBg: 'bg-[#B0122B]/8 border border-[#B0122B]/18',
         subtitleText: 'text-[#8E1023]',
     },
-    {
-        title: 'Unahon Screenings',
-        value: stats?.overview.totalUnahonAssessments || 0,
-        subtitle: 'Mental screening',
-        icon: <ShieldCheck className="w-7 h-7 text-white" />,
-        color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
-        cardBg: 'bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white',
-        cardBorder: 'border border-[#6B0F25]/20',
-        subtitleBg: 'bg-[#6B0F25]/8 border border-[#6B0F25]/18',
-        subtitleText: 'text-[#5A1023]',
-    },
+    
     {
         title: 'Recent Activity',
         value: myRecentActivities.length
@@ -720,7 +710,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         [];
 
     // ✅ metrics grid cols: Standard=3, Responder=4, Admin handled separately
-    const metricsGridCols = isStandard ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
+    const metricsGridCols = isStandard ? 'lg:grid-cols-2' : 'lg:grid-cols-4';
 
     return (
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-[#fff4f4] via-[#ffeaea] to-[#fff7f7]">

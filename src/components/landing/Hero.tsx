@@ -5,7 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Session } from 'next-auth';
 import { useState } from 'react';
-import AuthModal from '@/components/auth/AuthModal';
+import dynamic from 'next/dynamic';
+const AuthModal = dynamic(() => import('@/components/auth/AuthModal'));
 import { User } from 'lucide-react';
 
 const Hero = ({ session }: { session: Session | null }) => {
@@ -23,9 +24,13 @@ const Hero = ({ session }: { session: Session | null }) => {
     return (
         <section className="relative overflow-hidden bg-gradient-to-b from-red-100 via-white via-40% to-white text-gray-900">
             {/* Background image */}
-            <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: "url('/hero-bg.png')" }}
+            <Image
+                src="/hero-bg.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="absolute inset-0 object-cover object-center"
                 aria-hidden="true"
             />
 
@@ -163,7 +168,6 @@ const Hero = ({ session }: { session: Session | null }) => {
                                 group-hover:drop-shadow-md
                             "
                             style={{ transform: `scale(${logo.scale || 1})` }}
-                            priority
                         />
 
                         </div>

@@ -20,7 +20,9 @@ import Link from 'next/link';
 import type { Session } from 'next-auth';
 import { MhpssLevel, UserType } from '@prisma/client';
 import { useState } from 'react';
-import AuthModal from '@/components/auth/AuthModal';
+import dynamic from 'next/dynamic';
+
+const AuthModal = dynamic(() => import('@/components/auth/AuthModal'));
 import {
   ChevronDownIcon,
   LogIn,

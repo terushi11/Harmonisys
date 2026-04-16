@@ -150,8 +150,8 @@ const MiSaludStats = ({
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
                                     <div className="p-3 rounded-xl bg-red-100">
-    <CalendarIcon className="w-8 h-8 text-red-600" />
-</div>
+                                        <CalendarIcon className="w-8 h-8 text-red-600" />
+                                    </div>
                                     <div>
                                         <h3 className="text-lg font-semibold text-slate-800">
                                             {isArchiveView

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
-import ChatWidget from '@/components/chatbot/ChatWidget';
+import ChatWidgetLoader from '@/components/chatbot/ChatWidgetLoader';
 
 const geistSans = localFont({
     src: './fonts/GeistVF.woff',
@@ -29,7 +29,7 @@ export default function RootLayout({
         <html lang="en">
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 {children}
-                <ChatWidget />
+            <ChatWidgetLoader />
             </body>
         </html>
     );
