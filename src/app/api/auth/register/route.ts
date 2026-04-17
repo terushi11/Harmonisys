@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import path from 'path';
-import { mkdir, writeFile } from 'fs/promises';
+import { put } from '@vercel/blob';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { Gender, MhpssLevel, RequestStatus, UserType } from '@prisma/client';
@@ -148,16 +147,16 @@ export async function POST(req: Request) {
       const bytes = await mhpssCertificateFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'mhpss-certificates');
-      await mkdir(uploadDir, { recursive: true });
-
       const safeOriginalName = mhpssCertificateFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileName = `${Date.now()}-${safeOriginalName}`;
-      const filePath = path.join(uploadDir, fileName);
+      const fileName = `mhpss-certificates/${Date.now()}-${safeOriginalName}`;
 
-      await writeFile(filePath, buffer);
+      const blob = await put(fileName, buffer, {
+        access: 'public',
+        addRandomSuffix: true,
+        contentType: mhpssCertificateFile.type,
+      });
 
-      uploadedCertificatePath = `/uploads/mhpss-certificates/${fileName}`;
+      uploadedCertificatePath = blob.url;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
