@@ -230,11 +230,16 @@ export async function POST(req: Request) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Register error:', error);
+  } catch (error: any) {
+    console.error('Register error FULL:', error);
+    console.error('Register error message:', error?.message);
+    console.error('Register error stack:', error?.stack);
 
     return NextResponse.json(
-      { success: false, message: 'Something went wrong during registration.' },
+      {
+        success: false,
+        message: error?.message || 'Something went wrong during registration.',
+      },
       { status: 500 }
     );
   }
