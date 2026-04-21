@@ -21,17 +21,6 @@ import {
   Check,
 } from 'lucide-react';
 
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Cell,
-} from 'recharts';
-
 import dynamic from 'next/dynamic';
 
 import {
@@ -42,7 +31,13 @@ import {
 
 import SuccessDialog from '../SuccessDialog';
 
-const Questionnaire = dynamic(() => import('./Questionnaire'));
+const Questionnaire = dynamic(() => import('./Questionnaire'), {
+  ssr: false,
+});
+
+const IRSLocationBarChart = dynamic(() => import('./IRSLocationBarChart'), {
+  ssr: false,
+});
 
 const COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#7B122F', '#8B5CF6', '#d406a4'];
 
@@ -52,131 +47,11 @@ type SeverityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 type Incident = {
   id: string;
   location: string;
-  date: string;
-  summary: string;
-  description: string;
-  category: string;
-  reporter: string | null;
-  contact: string | null;
   severity: SeverityLevel | string;
-  attachments: string[];
   createdAt: string;
   updatedAt: string;
-  teamDeployed: string;
-  otherCategoryDetail: string | null;
-  reviewNote: string | null;
-  reviewedAt: string | null;
-  reviewedBy: string | null;
   status: IncidentStatus;
 };
-
-// ---- 3D Bar helpers (Recharts custom shape) ----
-const clamp = (n: number, min = 0, max = 255) => Math.max(min, Math.min(max, n));
-
-const shadeHex = (hex: string, percent: number) => {
-  const h = hex.replace('#', '');
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
-  const num = parseInt(full, 16);
-
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-
-  const t = percent / 100;
-
-  const nr = clamp(Math.round(r + (255 - r) * t));
-  const ng = clamp(Math.round(g + (255 - g) * t));
-  const nb = clamp(Math.round(b + (255 - b) * t));
-
-  const toHex = (v: number) => v.toString(16).padStart(2, '0');
-  return `#${toHex(nr)}${toHex(ng)}${toHex(nb)}`;
-};
-
-const Bar3D = (props: any) => {
-  const { x, y, width, height, fill, payload } = props;
-  if (height <= 0 || width <= 0) return null;
-
-  const d = Math.min(10, Math.max(6, Math.round(width * 0.18)));
-  const front = fill || '#3B82F6';
-
-  const right = shadeHex(front, -18);
-  const top = shadeHex(front, 18);
-
-  const frontTop = shadeHex(front, 22);
-  const frontBottom = shadeHex(front, -4);
-
-  const rightTop = shadeHex(right, 14);
-  const rightBottom = shadeHex(right, -6);
-
-  const topA = shadeHex(top, 25);
-  const topB = shadeHex(top, -5);
-
-  const fx = x;
-  const fy = y;
-  const fw = width;
-  const fh = height;
-
-  const topPts = `
-    ${fx - 0.8},${fy}
-    ${fx + d},${fy - d}
-    ${fx + fw + d + 0.8},${fy - d}
-    ${fx + fw + 0.8},${fy}
-  `;
-
-  const rightPts = `
-    ${fx + fw},${fy}
-    ${fx + fw + d},${fy - d}
-    ${fx + fw + d},${fy + fh - d + 0.8}
-    ${fx + fw},${fy + fh + 0.8}
-  `;
-
-  const key = payload?.name ? String(payload.name).replace(/\s+/g, '-') : `${fx}-${fy}`;
-  const gidFront = `g-front-${key}`;
-  const gidRight = `g-right-${key}`;
-  const gidTop = `g-top-${key}`;
-
-  return (
-    <g>
-      <defs>
-        <linearGradient id={gidFront} x1="0" y1={fy} x2="0" y2={fy + fh} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={frontTop} />
-          <stop offset="100%" stopColor={frontBottom} />
-        </linearGradient>
-
-        <linearGradient id={gidRight} x1={fx + fw} y1={fy} x2={fx + fw} y2={fy + fh} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={rightTop} />
-          <stop offset="100%" stopColor={rightBottom} />
-        </linearGradient>
-
-        <linearGradient id={gidTop} x1={fx} y1={fy - d} x2={fx + fw + d} y2={fy} gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor={topA} />
-          <stop offset="100%" stopColor={topB} />
-        </linearGradient>
-      </defs>
-
-      <path
-        d={`M ${fx} ${fy + fh} L ${fx + fw} ${fy + fh} L ${fx + fw + d} ${fy + fh - d} L ${fx + d} ${fy + fh - d} Z`}
-        fill="rgba(0,0,0,0.06)"
-      />
-
-      <polygon points={rightPts} fill={`url(#${gidRight})`} />
-      <polygon points={topPts} fill={`url(#${gidTop})`} />
-
-      <rect x={fx} y={fy} width={fw} height={fh} rx={0} ry={0} fill={`url(#${gidFront})`} />
-
-      <rect
-        x={fx + 1}
-        y={fy + 1}
-        width={Math.max(0, fw - 2)}
-        height={Math.max(0, fh - 2)}
-        fill="transparent"
-        stroke="rgba(255,255,255,0.22)"
-        strokeWidth="1"
-      />
-    </g>
-  );
-};
-
 const normalizeLocationToken = (value: string) => {
   return value
     .toLowerCase()
@@ -189,33 +64,35 @@ const normalizeLocationToken = (value: string) => {
     .trim();
 };
 
+const toTitleCase = (value: string) =>
+  value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+const NORMALIZED_CITY_TO_REGION = Object.entries(CITY_TO_REGION).reduce<
+  Record<string, string>
+>((acc, [city, region]) => {
+  acc[normalizeLocationToken(city)] = region;
+  return acc;
+}, {});
+
+const NORMALIZED_CITY_TO_CANONICAL = Object.keys(CITY_TO_REGION).reduce<
+  Record<string, string>
+>((acc, city) => {
+  acc[normalizeLocationToken(city)] = toTitleCase(normalizeLocationToken(city));
+  return acc;
+}, {});
+
 const findRegionByNormalizedCity = (value: string) => {
   const normalizedValue = normalizeLocationToken(value);
   if (!normalizedValue) return null;
 
-  for (const [knownCity, region] of Object.entries(CITY_TO_REGION)) {
-    if (normalizeLocationToken(knownCity) === normalizedValue) {
-      return region;
-    }
-  }
-
-  return null;
+  return NORMALIZED_CITY_TO_REGION[normalizedValue] ?? null;
 };
-
-const toTitleCase = (value: string) =>
-  value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
 const findCanonicalCityName = (value: string) => {
   const normalizedValue = normalizeLocationToken(value);
   if (!normalizedValue) return null;
 
-  for (const knownCity of Object.keys(CITY_TO_REGION)) {
-    if (normalizeLocationToken(knownCity) === normalizedValue) {
-      return toTitleCase(normalizeLocationToken(knownCity));
-    }
-  }
-
-  return null;
+  return NORMALIZED_CITY_TO_CANONICAL[normalizedValue] ?? null;
 };
 
 const isKnownPhilippineCity = (value: string) => {
@@ -335,7 +212,9 @@ export default function IRSOverview({
 
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/incidents', { cache: 'no-store' });
+      const response = await fetch('/api/admin/incidents?lite=1', {
+        cache: 'no-store',
+      });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch incidents: ${response.status}`);
@@ -391,7 +270,7 @@ export default function IRSOverview({
     };
   }, []);
 
-  const regionOptions = ['ALL', ...PHILIPPINE_REGIONS];
+  const regionOptions = useMemo(() => ['ALL', ...PHILIPPINE_REGIONS], []);
 
   const filteredIncidents = useMemo(() => {
     if (selectedRegion === 'ALL') return incidents;
@@ -529,18 +408,6 @@ export default function IRSOverview({
   const shortLabel = (value: any, max = 14) => {
     const s = String(value ?? '');
     return s.length > max ? `${s.slice(0, max)}…` : s;
-  };
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="rounded-2xl border border-white/60 bg-white/90 px-4 py-2 shadow-xl">
-        <p className="text-xs font-bold text-slate-900">{label}</p>
-        <p className="text-xs text-slate-700">
-          <span className="font-extrabold">{payload[0].value}</span> incidents
-        </p>
-      </div>
-    );
   };
 
   return (
@@ -1016,46 +883,12 @@ export default function IRSOverview({
                     </div>
 
                     <div className="lg:col-span-2 rounded-3xl border border-white/55 bg-white/55 p-4 sm:p-5">
-                      <div className="h-[300px] sm:h-[330px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            key={barChartKey}
-                            data={topLocations}
-                            margin={{ top: 12, right: 0, left: 0, bottom: 18 }}
-                            barCategoryGap="10%"
-                            barGap={2}
-                          >
-                            <CartesianGrid strokeDasharray="4 4" stroke="rgba(0,0,0,0.08)" />
-                            <XAxis
-                              dataKey="name"
-                              interval={0}
-                              height={52}
-                              tickLine={false}
-                              axisLine={{ stroke: 'rgba(0,0,0,0.18)' }}
-                              tick={{ fontSize: 12, fill: 'rgba(15,23,42,0.85)' }}
-                              tickFormatter={(v) => shortLabel(v, 16)}
-                              padding={{ left: 0, right: 0 }}
-                            />
-
-                            <YAxis allowDecimals={false} width={32} />
-
-                            <Tooltip content={<CustomTooltip />} />
-
-                            <Bar
-                              dataKey="value"
-                              shape={<Bar3D />}
-                              maxBarSize={90}
-                              isAnimationActive={locInView}
-                              animationDuration={900}
-                              animationEasing="ease-out"
-                            >
-                              {topLocations.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
+                      <IRSLocationBarChart
+                        topLocations={topLocations}
+                        barChartKey={barChartKey}
+                        locInView={locInView}
+                        shortLabel={shortLabel}
+                      />
 
                       <div className="mt-2 h-3 w-full rounded-full bg-gradient-to-r from-black/5 via-black/0 to-black/5" />
                     </div>

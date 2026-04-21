@@ -18,6 +18,8 @@ export async function GET(req: Request) {
   const status = searchParams.get('status') || 'ALL';
   const severity = searchParams.get('severity') || 'ALL';
 
+    const lite = searchParams.get('lite') === '1';
+
   const incidents = await prisma.incident.findMany({
     where: {
       AND: [
@@ -35,6 +37,18 @@ export async function GET(req: Request) {
       ],
     },
     orderBy: { createdAt: 'desc' },
+    ...(lite
+      ? {
+          select: {
+            id: true,
+            location: true,
+            status: true,
+            severity: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        }
+      : {}),
   });
 
   return NextResponse.json({ data: incidents });

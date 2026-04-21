@@ -39,54 +39,34 @@ const QuickStats = ({ locationData, events, eventStats, loading = false }: Props
 
   const gaugeData = [{ name: 'rate', value: Math.min(Math.max(resolutionRate, 0), 100) }];
 
-  useEffect(() => {
-  const el = statsRef.current;
-  if (!el) return;
+    useEffect(() => {
+      const el = statsRef.current;
+      if (!el) return;
 
-  wasInViewRef.current = false;
-
-  const io = new IntersectionObserver(
-    ([entry]) => {
-      const isInView = !!entry?.isIntersecting;
-
-      if (isInView && !wasInViewRef.current) {
-        triggerAnimate();
-      }
-
-      wasInViewRef.current = isInView;
-    },
-    {
-      threshold: 0.55,
-      rootMargin: '0px 0px -20% 0px',
-    }
-  );
-
-  io.observe(el);
-
-  // fallback for reload/layout shift cases
-  const onScroll = () => {
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-
-    const inView = rect.top < vh * 0.8 && rect.bottom > vh * 0.2;
-
-    if (inView && !wasInViewRef.current) {
-      triggerAnimate();
-      wasInViewRef.current = true;
-    } else if (!inView && wasInViewRef.current) {
       wasInViewRef.current = false;
-    }
-  };
 
-  window.addEventListener('scroll', onScroll, { passive: true });
-  requestAnimationFrame(onScroll);
-  setTimeout(onScroll, 250);
+      const io = new IntersectionObserver(
+        ([entry]) => {
+          const isInView = !!entry?.isIntersecting;
 
-  return () => {
-    io.disconnect();
-    window.removeEventListener('scroll', onScroll);
-  };
-}, []);
+          if (isInView && !wasInViewRef.current) {
+            triggerAnimate();
+          }
+
+          wasInViewRef.current = isInView;
+        },
+        {
+          threshold: 0.35,
+          rootMargin: '0px 0px -10% 0px',
+        }
+      );
+
+      io.observe(el);
+
+      return () => {
+        io.disconnect();
+      };
+    }, []);
 
 
   return (

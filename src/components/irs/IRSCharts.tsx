@@ -1,5 +1,5 @@
 import { Card, CardBody, Skeleton } from '@heroui/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ResponsiveContainer, PieChart, Pie, Tooltip, Cell } from 'recharts';
 
@@ -23,22 +23,28 @@ const triggerAnimate = () => {
   setChartKey((k) => k + 1);
 };
 
-
-
   // ✅ remove "Unknown" (treat as missing location)
-  const cleaned = locationData.filter(
-    (x) => String(x.name).trim().toLowerCase() !== 'unknown'
-  );
+    const cleaned = useMemo(
+      () =>
+        locationData.filter(
+          (x) => String(x.name).trim().toLowerCase() !== 'unknown'
+        ),
+      [locationData]
+    );
 
-  const sorted = [...cleaned].sort((a, b) => b.value - a.value);
-  const top = sorted.slice(0, 6);
+    const sorted = useMemo(
+      () => [...cleaned].sort((a, b) => b.value - a.value),
+      [cleaned]
+    );
 
-  const total = Math.max(
-    sorted.reduce((acc, cur) => acc + cur.value, 0),
-    1
-  );
+    const top = useMemo(() => sorted.slice(0, 6), [sorted]);
 
-  const hasData = sorted.length > 0 && total > 0;
+    const total = useMemo(
+      () => Math.max(sorted.reduce((acc, cur) => acc + cur.value, 0), 1),
+      [sorted]
+    );
+
+    const hasData = sorted.length > 0 && total > 0;
 
   // ✅ Reset when navigating to this route again
 useEffect(() => {
@@ -58,45 +64,17 @@ useEffect(() => {
       wasInViewRef.current = isInView;
     },
     {
-      threshold: 0.55,
-      rootMargin: '0px 0px -20% 0px',
+      threshold: 0.35,
+      rootMargin: '0px 0px -10% 0px',
     }
   );
 
   io.observe(el);
 
-  // ✅ Fallback: if observer misses events after reload, scroll will catch it
-  const onScroll = () => {
-    const rect = el.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-
-    const inView =
-      rect.top < vh * 0.8 && rect.bottom > vh * 0.2; // visible zone
-
-    if (inView && !wasInViewRef.current) {
-      triggerAnimate();
-      wasInViewRef.current = true;
-    } else if (!inView && wasInViewRef.current) {
-      wasInViewRef.current = false;
-    }
-  };
-
-  window.addEventListener('scroll', onScroll, { passive: true });
-
-  // run once after layout settles (important after reload)
-  requestAnimationFrame(onScroll);
-  setTimeout(onScroll, 250);
-
   return () => {
     io.disconnect();
-    window.removeEventListener('scroll', onScroll);
   };
-  // ✅ re-init when route changes OR when data changes (layout shifts)
 }, [pathname, loading, top.length]);
-
-
-
-
 
   return (
     <div>
