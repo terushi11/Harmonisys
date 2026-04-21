@@ -285,7 +285,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const [chartsData, setChartsData] = useState<DashboardChartsData | null>(
         null
     );
+    const [recentActivities, setRecentActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingActivity, setLoadingActivity] = useState(true);
     const [selectedTab, setSelectedTab] = useState('overview');
     const [avatarError, setAvatarError] = useState(false);
 
@@ -304,24 +306,58 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const currentUserEmail = session?.user?.email?.toLowerCase() || '';
     const currentUserName = session?.user?.name?.toLowerCase() || '';
 
-    useEffect(() => {
-        const fetchDashboardStats = async () => {
-            try {
-                setLoading(true);
+        useEffect(() => {
+            let cancelled = false;
 
-                const statsResponse = await fetch('/api/dashboard/stats');
-                const statsData = await statsResponse.json();
+            const fetchDashboardStats = async () => {
+                try {
+                    setLoading(true);
 
-                if (statsData.success) setStats(statsData.data);
-            } catch (error) {
-                console.error('Error fetching dashboard stats:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+                    const statsResponse = await fetch('/api/dashboard/stats', {
+                        cache: 'no-store',
+                    });
+                    const statsData = await statsResponse.json();
 
-        fetchDashboardStats();
-    }, []);
+                    if (!cancelled && statsData.success) {
+                        setStats(statsData.data);
+                    }
+                } catch (error) {
+                    console.error('Error fetching dashboard stats:', error);
+                } finally {
+                    if (!cancelled) {
+                        setLoading(false);
+                    }
+                }
+            };
+
+            const fetchRecentActivities = async () => {
+                try {
+                    setLoadingActivity(true);
+
+                    const response = await fetch('/api/dashboard/activity', {
+                        cache: 'no-store',
+                    });
+                    const result = await response.json();
+
+                    if (!cancelled && result.success) {
+                        setRecentActivities(Array.isArray(result.data) ? result.data : []);
+                    }
+                } catch (error) {
+                    console.error('Error fetching dashboard activity:', error);
+                } finally {
+                    if (!cancelled) {
+                        setLoadingActivity(false);
+                    }
+                }
+            };
+
+            fetchDashboardStats();
+            fetchRecentActivities();
+
+            return () => {
+                cancelled = true;
+            };
+        }, []);
 
     useEffect(() => {
         if (!isAdmin) return;
@@ -330,7 +366,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         const fetchChartsData = async () => {
             try {
-                const chartsResponse = await fetch('/api/dashboard/charts');
+                const chartsResponse = await fetch('/api/dashboard/charts', {
+                    cache: 'no-store',
+                });
                 const chartsResult = await chartsResponse.json();
 
                 if (chartsResult.success) setChartsData(chartsResult.data);
@@ -374,7 +412,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                 maximumAge: 300000,
             }
         );
-        }, 1200);
+    }, 4000);
         return () => clearTimeout(geoTimer);
     }, [isResponder, isAdmin]);
 
@@ -388,7 +426,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             idleTimer = setTimeout(() => {
                 setShowResponderTools(false);
                 setIsResponderIdleOpen(true);
-            }, 10000);
+            }, 20000);
         };
 
         const handleUserActivity = () => {
@@ -397,12 +435,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         };
 
         const activityEvents: Array<keyof WindowEventMap> = [
-            'mousemove',
             'mousedown',
             'keydown',
-            'scroll',
             'touchstart',
-            'click',
         ];
 
         startIdleTimer();
@@ -590,7 +625,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
     // Best-effort "My recent activities"
     const myRecentActivities =
-        stats?.recentActivities?.filter((a) => {
+        recentActivities.filter((a) => {
             const activityUser = (a.user || '').toLowerCase();
             if (!activityUser) return false;
 
@@ -742,8 +777,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 );
 
     const activitiesToShow =
-        (isPersonalDashboard ? myRecentActivities : stats?.recentActivities) ||
-        [];
+        isPersonalDashboard ? myRecentActivities : recentActivities;
 
     // ✅ metrics grid cols: Standard=3, Responder=4, Admin handled separately
     const metricsGridCols = isStandard ? 'lg:grid-cols-2' : 'lg:grid-cols-4';
