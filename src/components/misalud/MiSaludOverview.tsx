@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@heroui/react';
 import {
   ArrowRight,
-  Layers,
+  Info,
   ClipboardList,
   Activity,
   HeartPulse,
@@ -198,7 +198,7 @@ const buttonLabel =
                   className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg"
                   style={{ backgroundColor: PRIMARY }}
                 >
-                  <Layers className="w-6 h-6 text-white" />
+                  <Info className="w-6 h-6 text-white" />
                 </div>
 
                 <div>

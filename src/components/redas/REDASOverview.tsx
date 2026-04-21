@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { Button, Skeleton, Card, CardBody, CardHeader } from '@heroui/react';
 import Link from 'next/link';
@@ -13,8 +13,8 @@ import {
   Award,
   Users,
   Video,
+  Info,
   Layers,
-  Activity,
   BookOpen,
 } from 'lucide-react';
 
@@ -143,6 +143,10 @@ const REDASOverview = ({
   const [loading, setLoading] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  const autoplayRef = useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: false })
+  );
+
     // ✅ IRS-like glass + soft-blue card styles (REDAS theme)
   const cardGlass =
     'relative rounded-3xl overflow-hidden ' +
@@ -158,7 +162,7 @@ const REDASOverview = ({
   // Embla Carousel hooks with autoplay
   const [emblaRefModules, emblaApiModules] = useEmblaCarousel(
     { loop: true, slidesToScroll: 1 },
-    [Autoplay({ delay: 3000, stopOnInteraction: false })]
+    [autoplayRef.current]
   );
 
   // Navigation states
@@ -166,12 +170,22 @@ const REDASOverview = ({
   const [canScrollNextModules, setCanScrollNextModules] = useState(false);
 
   // Navigation callbacks
-  const scrollPrevModules = useCallback(() => emblaApiModules && emblaApiModules.scrollPrev(), [emblaApiModules]);
-  const scrollNextModules = useCallback(() => emblaApiModules && emblaApiModules.scrollNext(), [emblaApiModules]);
+  const scrollPrevModules = useCallback(() => {
+    if (!emblaApiModules) return;
+    emblaApiModules.scrollPrev();
+    autoplayRef.current.reset();
+  }, [emblaApiModules]);
+  const scrollNextModules = useCallback(() => {
+    if (!emblaApiModules) return;
+    emblaApiModules.scrollNext();
+    autoplayRef.current.reset();
+  }, [emblaApiModules]);
 
   const scrollToSlide = useCallback(
     (index: number) => {
-      if (emblaApiModules) emblaApiModules.scrollTo(index);
+      if (!emblaApiModules) return;
+      emblaApiModules.scrollTo(index);
+      autoplayRef.current.reset();
     },
     [emblaApiModules]
   );
@@ -302,7 +316,7 @@ const REDASOverview = ({
         {!isResponderView && (
           <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8">
             {/* Image Section - REDAS Modules Carousel */}
-            <Card className="bg-white/70 backdrop-blur-sm shadow-lg border border-white/20">
+            <Card className={`${cardGlass}`}>
               <CardBody className="p-0">
                 <div className="relative w-full aspect-[4/3] md:aspect-[16/10] overflow-hidden rounded-lg bg-blue-50/40 pt-8 pb-8">
                   <div className="overflow-hidden rounded-lg h-full" ref={emblaRefModules}>
@@ -355,7 +369,7 @@ const REDASOverview = ({
                   <div className="w-full px-2 sm:px-4">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-[#2563EB] flex items-center justify-center shadow">
-                        <Layers className="w-4 h-4 text-white" />
+                        <Info className="w-4 h-4 text-white" />
                       </div>
                       <div>
                         <h2 className="text-xl font-black text-[#1E3A8A]">About REDAS</h2>
@@ -385,7 +399,7 @@ const REDASOverview = ({
                   <div className="w-full px-2 sm:px-4">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shadow">
-                        <Activity className="w-4 h-4 text-[#1E3A8A]" />
+                        <Layers className="w-4 h-4 text-[#1E3A8A]" />
                       </div>
                       <div>
                         <h2 className="text-xl font-black text-white">Available Features</h2>
@@ -468,7 +482,8 @@ const REDASOverview = ({
           {/* Awards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {REDAS_AWARDS.map((award, i) => (
-              <Card key={i} className="bg-white shadow-md hover:shadow-lg transition-shadow duration-300">
+              <Card key={i} className={`${cardGlass}`}>
+                <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1.5 ring-white/60" />
                 <CardBody className="p-0">
                   <div className="relative w-full h-[180px] flex items-center justify-center bg-white">
                     <Image
@@ -481,7 +496,9 @@ const REDASOverview = ({
                   </div>
 
                   <div className="p-3">
-                    <p className="text-sm font-medium text-center text-slate-700">{award.title}</p>
+                    <p className="text-xs sm:text-sm font-medium text-center text-slate-700 leading-tight">
+                      {award.title}
+                    </p>
                   </div>
                 </CardBody>
               </Card>

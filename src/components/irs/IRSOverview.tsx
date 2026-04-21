@@ -12,9 +12,13 @@ import {
   CalendarDays,
   BarChart3,
   Info,
+  MapPin,
+  Map,
   Layers,
   Clock3,
   CheckSquare,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 
 import {
@@ -28,14 +32,17 @@ import {
   Cell,
 } from 'recharts';
 
-import Questionnaire from './Questionnaire';
-import SuccessDialog from '../SuccessDialog';
+import dynamic from 'next/dynamic';
 
 import {
   PHILIPPINE_REGIONS,
   REGION_ALIASES,
   CITY_TO_REGION,
 } from '@/utils/philippineRegions';
+
+import SuccessDialog from '../SuccessDialog';
+
+const Questionnaire = dynamic(() => import('./Questionnaire'));
 
 const COLORS = ['#3B82F6', '#22C55E', '#F59E0B', '#7B122F', '#8B5CF6', '#d406a4'];
 
@@ -320,6 +327,9 @@ export default function IRSOverview({
   const [barChartKey, setBarChartKey] = useState(0);
   const [selectedRegion, setSelectedRegion] = useState('ALL');
 
+  const [isRegionOpen, setIsRegionOpen] = useState(false);
+  const regionDropdownRef = useRef<HTMLDivElement | null>(null);
+
   const fetchIncidents = useCallback(async () => {
     if (!canSeeAnalytics && userRole !== 'ADMIN') return;
 
@@ -342,8 +352,12 @@ export default function IRSOverview({
   }, [canSeeAnalytics, userRole]);
 
   useEffect(() => {
+    if (!canSeeAnalytics) return;
+    if (!statsInView && !locInView) return;
+    if (incidents.length > 0) return;
+
     fetchIncidents();
-  }, [fetchIncidents]);
+  }, [canSeeAnalytics, statsInView, locInView, incidents.length, fetchIncidents]);
 
   useEffect(() => {
     const makeObserver = (onEnter: () => void, onExit?: () => void) =>
@@ -387,7 +401,7 @@ export default function IRSOverview({
     );
   }, [incidents, selectedRegion]);
 
-  const incidentStats = {
+  const incidentStats = useMemo(() => ({
     total: filteredIncidents.length,
     active: filteredIncidents.filter(
       (i) => i.status === 'PENDING' || i.status === 'APPROVED'
@@ -398,7 +412,7 @@ export default function IRSOverview({
         .map((i) => extractCity(i.location || 'Unknown'))
         .filter((city) => city !== 'Unknown')
     ).size,
-  };
+  }), [filteredIncidents]);
 
   const locationData = useMemo(() => {
     const locationCounts: Record<string, number> = {};
@@ -441,6 +455,20 @@ export default function IRSOverview({
     return () => clearTimeout(timer);
   }, [selectedRegion]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        regionDropdownRef.current &&
+        !regionDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsRegionOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleCloseModal = () => setOpen(false);
 
   const handleReportSuccess = async () => {
@@ -449,8 +477,8 @@ export default function IRSOverview({
   };
 
   const cardGlass =
-    'relative rounded-3xl overflow-hidden ' +
-    'bg-white/65 border border-white/100 ' +
+  'relative rounded-3xl overflow-hidden ' +
+  'bg-[linear-gradient(to_bottom,rgba(255,255,255,0.72),rgba(123,18,47,0.06))] border border-white/100 ' +
     'shadow-[0_0_0_1.5px_rgba(255,255,255,0.75),0_18px_45px_rgba(0,0,0,0.22)] ' +
     'transition-shadow duration-300 ' +
     'hover:shadow-[0_0_0_2px_rgba(255,255,255,0.90),0_22px_60px_rgba(0,0,0,0.25)]';
@@ -494,6 +522,9 @@ export default function IRSOverview({
       locked: !isAdmin && !canSeeAnalytics,
     },
   ];
+
+  const selectedRegionLabel =
+    selectedRegion === 'ALL' ? 'All Regions' : selectedRegion;
 
   const shortLabel = (value: any, max = 14) => {
     const s = String(value ?? '');
@@ -629,7 +660,7 @@ export default function IRSOverview({
                 <div className="w-full px-2 sm:px-4">
                   <div className="flex items-center gap-3">
                     <div className="h-11 w-11 rounded-2xl bg-white flex items-center justify-center shadow ring-1 ring-white/40">
-                      <Layers className="w-5 h-5 text-[#7B122F]" />
+                      <Layers className="w-6 h-6 text-[#7B122F]" />
                     </div>
 
                     <div>
@@ -698,22 +729,94 @@ export default function IRSOverview({
                   </h2>
                 </div>
 
-                <div className="w-full xl:w-[295px]">
-                  <select
-                    id="region-filter"
-                    value={selectedRegion}
-                    onChange={(e) => setSelectedRegion(e.target.value)}
-                    className="h-11 w-full rounded-[16px] border border-white/80 bg-white/95 px-4 text-[14px] font-semibold text-slate-800 shadow-[0_8px_20px_rgba(0,0,0,0.10)] outline-none transition-all duration-200 hover:shadow-[0_10px_24px_rgba(0,0,0,0.14)] focus:border-[#7B122F] focus:ring-2 focus:ring-[#7B122F]/20"
+                <div
+                  ref={regionDropdownRef}
+                  className="w-full sm:w-[220px] xl:w-[230px] relative z-20"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsRegionOpen((prev) => !prev)}
+                    className="
+                      w-full h-12 px-4
+                      rounded-2xl
+                      border border-[#7B122F]/50
+                      bg-white
+                      shadow-[0_0_0_3px_rgba(123,18,47,0.10),0_8px_20px_rgba(0,0,0,0.08)]
+                      hover:shadow-[0_0_0_4px_rgba(123,18,47,0.18),0_12px_26px_rgba(0,0,0,0.12)]
+                      transition-all duration-200
+                      flex items-center justify-between gap-3
+                    "
                   >
-                    <option value="ALL">Filter by Region — All Regions</option>
-                    {regionOptions
-                      .filter((region) => region !== 'ALL')
-                      .map((region) => (
-                        <option key={region} value={region}>
-                          {region}
-                        </option>
-                      ))}
-                  </select>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-8 w-8 rounded-xl bg-[#7B122F]/10 flex items-center justify-center">
+                        <Map className="h-4 w-4 text-[#7B122F]" />
+                      </div>
+
+                      <div className="min-w-0 text-left">
+                        <p className="text-[15px] font-semibold text-slate-800 truncate">
+                          {selectedRegionLabel}
+                        </p>
+                      </div>
+                    </div>
+
+                    <ChevronDown
+                      className={`h-4 w-4 text-[#7B122F] transition-transform duration-200 ${
+                        isRegionOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isRegionOpen && (
+                    <div
+                      className="
+                        absolute right-0 mt-2 w-full
+                        rounded-2xl overflow-hidden
+                        border border-[#7B122F]/20
+                        bg-[rgba(123,18,47,0.92)]
+                        backdrop-blur-xl
+                        shadow-[0_18px_45px_rgba(0,0,0,0.28)]
+                      "
+                    >
+                      <div
+                        className="
+                          max-h-[280px] overflow-y-auto py-2
+                          [&::-webkit-scrollbar]:w-2
+                          [&::-webkit-scrollbar-track]:bg-white/10
+                          [&::-webkit-scrollbar-thumb]:bg-white/30
+                          [&::-webkit-scrollbar-thumb]:rounded-full
+                          [&::-webkit-scrollbar-thumb:hover]:bg-white/45
+                        "
+                      >
+                        {regionOptions.map((region) => {
+                          const isSelected = selectedRegion === region;
+                          const label = region === 'ALL' ? 'All Regions' : region;
+
+                          return (
+                            <button
+                              key={region}
+                              type="button"
+                              onClick={() => {
+                                setSelectedRegion(region);
+                                setIsRegionOpen(false);
+                              }}
+                              className={`
+                                w-full px-4 py-3
+                                flex items-center justify-between gap-3
+                                text-left transition-colors duration-150
+                                ${isSelected
+                                  ? 'bg-white/18 text-white'
+                                  : 'text-white/90 hover:bg-white/10'}
+                              `}
+                            >
+                              <span className="text-[14px] font-semibold">{label}</span>
+
+                              {isSelected && <Check className="h-4 w-4 text-white" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -821,7 +924,7 @@ export default function IRSOverview({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-11 w-11 rounded-2xl bg-[#d9b8f4] flex items-center justify-center shadow-md">
-                          <Layers className="w-6 h-6 text-[#9333ea]" />
+                          <MapPin className="w-6 h-6 text-[#9333ea]" />
                         </div>
                         <div>
                           <p className="font-extrabold text-slate-900">Locations</p>

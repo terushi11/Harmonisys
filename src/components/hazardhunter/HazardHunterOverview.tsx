@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@heroui/react';
-import { ArrowRight, Layers } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
 
 type HazardHunterOverviewProps = {
   name: string;
@@ -147,13 +147,16 @@ const HazardHunterOverview = ({
         <div className="grid lg:grid-cols-5 gap-6">
           {/* LEFT (2 cols): About Card */}
           <div className="lg:col-span-3">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/40 p-6">
+            <div className="bg-[linear-gradient(to_bottom,rgba(255,255,255,0.7),rgba(232,215,194,0.4))] backdrop-blur-sm rounded-2xl
+                border border-white/80
+                shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_18px_40px_rgba(0,0,0,0.15)]
+                p-6">
               <div className="flex items-center gap-4 mb-6">
                 <div
                   className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg"
                   style={{ backgroundColor: PRIMARY }}
                 >
-                  <Layers className="w-6 h-6 text-white" />
+                  <Info className="w-6 h-6 text-white" />
                 </div>
 
                 <div>
@@ -185,7 +188,14 @@ const HazardHunterOverview = ({
           </div>
 
           {/* RIGHT (1 col): Image Card */}
-          <div className="lg:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/40 p-5">
+          <div className="
+            lg:col-span-2
+            bg-[linear-gradient(to_bottom,rgba(255,255,255,0.7),rgba(232,215,194,0.4))]
+            backdrop-blur-sm rounded-2xl
+            border border-white/80
+            shadow-[0_0_0_1.5px_rgba(255,255,255,0.9),0_18px_40px_rgba(0,0,0,0.15)]
+            p-5
+          ">
             <div className="relative w-[98%] mx-auto rounded-xl overflow-hidden bg-white/60">
               <Image
                 src={previewImageUrl || '/hazardhunter1.png'}

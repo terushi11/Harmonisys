@@ -19,6 +19,9 @@ import Link from 'next/link';
 import { REDAS_THEME } from '@/constants';
 
 const REDAS = () => {
+    const statCardBase =
+        'relative overflow-hidden rounded-3xl border border-white/70 ' +
+        'shadow-[0_0_0_1.5px_rgba(255,255,255,0.78),0_16px_40px_rgba(0,0,0,0.16)]';
     const [selectedLabel, setSelectedLabel] = useState('PROVINCES');
     const [places, setPlaces] = useState<string[]>([]);
     const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
@@ -283,12 +286,12 @@ const REDAS = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Total Trainings */}
-                        <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
+                        <Card className={`${statCardBase} bg-[#eef2fb] border border-[#cfd8ee]`}>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-blue-100 rounded-xl">
+                                    <div className="h-11 w-11 rounded-2xl bg-[#bcd0ff] flex items-center justify-center shadow-md">
                                         <svg
-                                            className="w-8 h-8 text-blue-600"
+                                            className="w-6 h-6 text-[#2563eb]"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -318,19 +321,19 @@ const REDAS = () => {
                                         programs
                                     </span>
                                 </div>
-                                <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full w-full transition-all duration-500"></div>
+                                <div className="mt-4 h-2 w-full rounded-full bg-[#dbe7ff] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[#3b82f6] w-full" />
                                 </div>
                             </CardBody>
                         </Card>
 
                         {/* Selected Location */}
-                        <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
+                        <Card className={`${statCardBase} bg-[#eef8f0] border border-[#cfe8d4]`}>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-green-100 rounded-xl">
+                                    <div className="h-11 w-11 rounded-2xl bg-[#bfe8c8] flex items-center justify-center shadow-md">
                                         <svg
-                                            className="w-8 h-8 text-green-600"
+                                            className="w-6 h-6 text-[#16a34a]"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -363,19 +366,19 @@ const REDAS = () => {
                                         {selectedPlace || 'None Selected'}
                                     </span>
                                 </div>
-                                <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full w-full transition-all duration-500"></div>
+                                <div className="mt-4 h-2 w-full rounded-full bg-[#d9f0de] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[#22c55e] w-full" />
                                 </div>
                             </CardBody>
                         </Card>
 
                         {/* Category */}
-                        <Card className="bg-white/70 backdrop-blur-sm shadow-lg hover:shadow-2xl border border-white/20 transition-all duration-300 hover:-translate-y-2">
+                        <Card className={`${statCardBase} bg-[#f4edfb] border border-[#dfcff3]`}>
                             <CardBody className="p-6">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className="p-3 bg-purple-100 rounded-xl">
+                                    <div className="h-11 w-11 rounded-2xl bg-[#d9b8f4] flex items-center justify-center shadow-md">
                                         <svg
-                                            className="w-8 h-8 text-purple-600"
+                                            className="w-6 h-6 text-[#9333ea]"
                                             fill="none"
                                             viewBox="0 0 24 24"
                                             stroke="currentColor"
@@ -399,14 +402,11 @@ const REDAS = () => {
                                 </div>
                                 <div className="mb-3">
                                     <span className="text-lg font-bold text-slate-900">
-                                        {selectedLabel.replace(
-                                            'REDAS Trained ',
-                                            ''
-                                        )}
+                                        {selectedLabel.replace('REDAS Trained ', '')}
                                     </span>
                                 </div>
-                                <div className="w-full bg-slate-200 rounded-full h-2">
-                                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full w-full transition-all duration-500"></div>
+                                <div className="mt-4 h-2 w-full rounded-full bg-[#eadcf8] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[#a855f7] w-full" />
                                 </div>
                             </CardBody>
                         </Card>

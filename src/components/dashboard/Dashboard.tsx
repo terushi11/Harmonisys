@@ -33,8 +33,28 @@ import {
 import type { Session } from 'next-auth';
 import { UserType } from '@prisma/client';
 import type { DashboardStats, DashboardChartsData } from '@/types';
-import DashboardCharts from './DashboardCharts';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
+
+const DashboardCharts = dynamic(() => import('./DashboardCharts'), {
+    loading: () => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {[1, 2, 3].map((i) => (
+                <Card
+                    key={i}
+                    className="bg-white/80 backdrop-blur-xl shadow-xl border border-white/60 rounded-3xl"
+                >
+                    <CardBody className="p-6">
+                        <div className="animate-pulse">
+                            <div className="h-5 bg-slate-200 rounded-lg w-1/3 mb-4" />
+                            <div className="h-56 bg-slate-200 rounded-2xl" />
+                        </div>
+                    </CardBody>
+                </Card>
+            ))}
+        </div>
+    ),
+});
 
 const getInitials = (name?: string | null) => {
     if (!name) return 'U';
@@ -285,29 +305,42 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const currentUserName = session?.user?.name?.toLowerCase() || '';
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
+        const fetchDashboardStats = async () => {
             try {
                 setLoading(true);
 
-                const [statsResponse, chartsResponse] = await Promise.all([
-                    fetch('/api/dashboard/stats'),
-                    fetch('/api/dashboard/charts'),
-                ]);
-
+                const statsResponse = await fetch('/api/dashboard/stats');
                 const statsData = await statsResponse.json();
-                const chartsData = await chartsResponse.json();
 
                 if (statsData.success) setStats(statsData.data);
-                if (chartsData.success) setChartsData(chartsData.data);
             } catch (error) {
-                console.error('Error fetching dashboard data:', error);
+                console.error('Error fetching dashboard stats:', error);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchDashboardData();
+        fetchDashboardStats();
     }, []);
+
+    useEffect(() => {
+        if (!isAdmin) return;
+        if (selectedTab !== 'analytics') return;
+        if (chartsData) return;
+
+        const fetchChartsData = async () => {
+            try {
+                const chartsResponse = await fetch('/api/dashboard/charts');
+                const chartsResult = await chartsResponse.json();
+
+                if (chartsResult.success) setChartsData(chartsResult.data);
+            } catch (error) {
+                console.error('Error fetching dashboard charts:', error);
+            }
+        };
+
+        fetchChartsData();
+    }, [isAdmin, selectedTab, chartsData]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -319,7 +352,8 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         if (locationPromptShown || storedLocation) return;
         if (!navigator.geolocation) return;
 
-        navigator.geolocation.getCurrentPosition(
+        const geoTimer = setTimeout(() => {
+            navigator.geolocation.getCurrentPosition(
             (position) => {
                 const locationData = {
                     lat: position.coords.latitude,
@@ -340,6 +374,8 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                 maximumAge: 300000,
             }
         );
+        }, 1200);
+        return () => clearTimeout(geoTimer);
     }, [isResponder, isAdmin]);
 
     useEffect(() => {

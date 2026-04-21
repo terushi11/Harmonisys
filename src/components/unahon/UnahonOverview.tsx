@@ -13,7 +13,7 @@ import {
   Brain,
   Target,
   ClipboardCheck,
-  Activity,
+  Layers,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -82,17 +82,18 @@ if (isResponderView) return null;
   const PRIMARY_HOVER = '#991B1B';
 
   const cardGlass =
-    'relative rounded-3xl overflow-hidden ' +
-    'bg-white/65 border border-white/100 ' +
-    'shadow-[0_0_0_1.5px_rgba(255,255,255,0.75),0_18px_45px_rgba(0,0,0,0.22)] ' +
-    'transition-shadow duration-300 ' +
-    'hover:shadow-[0_0_0_2px_rgba(255,255,255,0.90),0_22px_60px_rgba(0,0,0,0.25)]';
+  'relative rounded-3xl overflow-hidden ' +
+  'bg-[linear-gradient(to_bottom,rgba(255,255,255,0.72),rgba(157,29,29,0.06))] border border-white/90 ' +
+  'shadow-[0_0_0_1.5px_rgba(255,255,255,0.85),0_18px_45px_rgba(0,0,0,0.15)] ' +
+  'backdrop-blur-sm ' +
+  'transition-shadow duration-300 ' +
+  'hover:shadow-[0_0_0_2px_rgba(255,255,255,0.95),0_22px_60px_rgba(0,0,0,0.20)]';
 
   const featureTile =
-    'group flex gap-3 rounded-2xl bg-white/80 border border-white/70 ' +
-    'shadow-[0_0_0_1px_rgba(255,255,255,0.55),0_10px_22px_rgba(0,0,0,0.10)] ' +
-    'px-4 py-3 transition-all duration-300 ' +
-    'hover:-translate-y-1 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.8),0_16px_30px_rgba(0,0,0,0.18)]';
+  'group flex gap-3 rounded-2xl bg-[linear-gradient(to_bottom,rgba(255,255,255,0.78),rgba(157,29,29,0.05))] border border-white/80 ' +
+  'shadow-[0_0_0_1px_rgba(255,255,255,0.6),0_8px_18px_rgba(0,0,0,0.08)] ' +
+  'px-4 py-3 transition-all duration-300 ' +
+  'hover:-translate-y-1 hover:shadow-[0_0_0_1.5px_rgba(255,255,255,0.85),0_14px_26px_rgba(0,0,0,0.14)]';
 
   // ✅ normalize images (supports 1 or many)
   const images = useMemo(() => {
@@ -210,7 +211,7 @@ onMouseLeave={(e) => {
                       className="h-11 w-11 rounded-2xl flex items-center justify-center shadow"
                       style={{ backgroundColor: PRIMARY }}
                     >
-                      <Activity className="w-5 h-5 text-white" />
+                      <Layers className="w-5 h-5 text-white" />
                     </div>
 
                     <div>

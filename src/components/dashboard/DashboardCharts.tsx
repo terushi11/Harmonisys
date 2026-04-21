@@ -1,6 +1,6 @@
 'use client';
 
-import type React from 'react';
+import React, { useMemo } from 'react';
 
 import { Card, CardBody, CardHeader, Progress, Chip } from '@heroui/react';
 import {
@@ -93,7 +93,7 @@ const extractResponderName = (description: string) => {
   return raw.replace(/\s+/g, ' ');
 };
 
-const DashboardCharts: React.FC<DashboardChartsProps> = ({ chartsData }) => {
+const DashboardCharts: React.FC<DashboardChartsProps> = React.memo(({ chartsData }) => {
   if (!chartsData) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -114,41 +114,55 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ chartsData }) => {
     );
   }
 
-  const categoryData = [...chartsData.distributions.category]
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
-
-  const maxCategoryValue = Math.max(
-    ...categoryData.map((c) => c.value),
-    1
+  const categoryData = useMemo(
+    () =>
+      [...chartsData.distributions.category]
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6),
+    [chartsData.distributions.category]
   );
 
-  const groupedLocationsMap = new Map<string, number>();
-  chartsData.topLocations.forEach((location) => {
-    const city = extractCity(location.name);
-    groupedLocationsMap.set(city, (groupedLocationsMap.get(city) || 0) + location.value);
-  });
-
-  const groupedLocations = [...groupedLocationsMap.entries()]
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
-
-  const maxLocationValue = Math.max(
-    ...groupedLocations.map((l) => l.value),
-    1
+  const maxCategoryValue = useMemo(
+    () => Math.max(...categoryData.map((c) => c.value), 1),
+    [categoryData]
   );
 
-  const responderData = chartsData.recentActivity
-    .filter((activity) => activity.type === 'assessment')
-    .slice(0, 5)
-    .map((activity, index) => ({
-      id: activity.id,
-      rank: index + 1,
-      name: extractResponderName(activity.description),
-      title: activity.title,
-      timestamp: activity.timestamp,
-    }));
+  const groupedLocations = useMemo(() => {
+    const groupedLocationsMap = new Map<string, number>();
+
+    chartsData.topLocations.forEach((location) => {
+      const city = extractCity(location.name);
+      groupedLocationsMap.set(
+        city,
+        (groupedLocationsMap.get(city) || 0) + location.value
+      );
+    });
+
+    return [...groupedLocationsMap.entries()]
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [chartsData.topLocations]);
+
+  const maxLocationValue = useMemo(
+    () => Math.max(...groupedLocations.map((l) => l.value), 1),
+    [groupedLocations]
+  );
+
+  const responderData = useMemo(
+    () =>
+      chartsData.recentActivity
+        .filter((activity) => activity.type === 'assessment')
+        .slice(0, 5)
+        .map((activity, index) => ({
+          id: activity.id,
+          rank: index + 1,
+          name: extractResponderName(activity.description),
+          title: activity.title,
+          timestamp: activity.timestamp,
+        })),
+    [chartsData.recentActivity]
+  );
 
   return (
     <div className="space-y-6">
@@ -371,6 +385,6 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ chartsData }) => {
       </div>
     </div>
   );
-};
+});
 
 export default DashboardCharts;
