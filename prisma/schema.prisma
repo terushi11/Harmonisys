@@ -136,6 +136,10 @@ model Incident {
   user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+  @@index([severity])
+  @@index([teamDeployed])
 }
 
 model Unahon {

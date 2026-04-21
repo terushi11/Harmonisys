@@ -285,11 +285,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const [chartsData, setChartsData] = useState<DashboardChartsData | null>(
         null
     );
-    const [recentActivities, setRecentActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [loadingActivity, setLoadingActivity] = useState(true);
-    const [statsError, setStatsError] = useState<string | null>(null);
-    const [activityError, setActivityError] = useState<string | null>(null);
     const [selectedTab, setSelectedTab] = useState('overview');
     const [avatarError, setAvatarError] = useState(false);
 
@@ -308,80 +304,24 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const currentUserEmail = session?.user?.email?.toLowerCase() || '';
     const currentUserName = session?.user?.name?.toLowerCase() || '';
 
-            useEffect(() => {
-            let cancelled = false;
+    useEffect(() => {
+        const fetchDashboardStats = async () => {
+            try {
+                setLoading(true);
 
-            const fetchDashboardStats = async () => {
-                try {
-                    setLoading(true);
-                    setStatsError(null);
+                const statsResponse = await fetch('/api/dashboard/stats');
+                const statsData = await statsResponse.json();
 
-                    const statsResponse = await fetch('/api/dashboard/stats', {
-                        cache: 'no-store',
-                    });
-                    const statsData = await statsResponse.json();
+                if (statsData.success) setStats(statsData.data);
+            } catch (error) {
+                console.error('Error fetching dashboard stats:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-                    if (!statsResponse.ok || !statsData.success) {
-                        throw new Error(statsData?.error || 'Failed to fetch dashboard stats');
-                    }
-
-                    if (!cancelled) {
-                        setStats(statsData.data);
-                    }
-                } catch (error) {
-                    console.error('Error fetching dashboard stats:', error);
-
-                    if (!cancelled) {
-                        setStatsError(
-                            error instanceof Error ? error.message : 'Failed to fetch dashboard stats'
-                        );
-                    }
-                } finally {
-                    if (!cancelled) {
-                        setLoading(false);
-                    }
-                }
-            };
-
-            const fetchRecentActivities = async () => {
-                try {
-                    setLoadingActivity(true);
-                    setActivityError(null);
-
-                    const response = await fetch('/api/dashboard/activity', {
-                        cache: 'no-store',
-                    });
-                    const result = await response.json();
-
-                    if (!response.ok || !result.success) {
-                        throw new Error(result?.error || 'Failed to fetch dashboard activity');
-                    }
-
-                    if (!cancelled) {
-                        setRecentActivities(Array.isArray(result.data) ? result.data : []);
-                    }
-                } catch (error) {
-                    console.error('Error fetching dashboard activity:', error);
-
-                    if (!cancelled) {
-                        setActivityError(
-                            error instanceof Error ? error.message : 'Failed to fetch dashboard activity'
-                        );
-                    }
-                } finally {
-                    if (!cancelled) {
-                        setLoadingActivity(false);
-                    }
-                }
-            };
-
-            fetchDashboardStats();
-            fetchRecentActivities();
-
-            return () => {
-                cancelled = true;
-            };
-        }, []);
+        fetchDashboardStats();
+    }, []);
 
     useEffect(() => {
         if (!isAdmin) return;
@@ -390,9 +330,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         const fetchChartsData = async () => {
             try {
-                const chartsResponse = await fetch('/api/dashboard/charts', {
-                    cache: 'no-store',
-                });
+                const chartsResponse = await fetch('/api/dashboard/charts');
                 const chartsResult = await chartsResponse.json();
 
                 if (chartsResult.success) setChartsData(chartsResult.data);
@@ -436,7 +374,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                 maximumAge: 300000,
             }
         );
-    }, 4000);
+        }, 1200);
         return () => clearTimeout(geoTimer);
     }, [isResponder, isAdmin]);
 
@@ -450,7 +388,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             idleTimer = setTimeout(() => {
                 setShowResponderTools(false);
                 setIsResponderIdleOpen(true);
-            }, 20000);
+            }, 10000);
         };
 
         const handleUserActivity = () => {
@@ -459,9 +397,12 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         };
 
         const activityEvents: Array<keyof WindowEventMap> = [
+            'mousemove',
             'mousedown',
             'keydown',
+            'scroll',
             'touchstart',
+            'click',
         ];
 
         startIdleTimer();
@@ -494,7 +435,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             description:
                 'Incident Reporting System for emergency drills and real-time incident tracking',
             icon: <AlertTriangle className="w-7 h-7 text-white" />,
-            stats: stats ? stats.overview.totalIncidents.toString() : '—',
+            stats: stats?.overview.totalIncidents.toString() || '0',
             trend: stats?.recent.recentIncidents
                 ? `+${stats.recent.recentIncidents} this month`
                 : '0 this month',
@@ -507,7 +448,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             description:
                 'Rapid Earthquake Damage Assessment System training programs',
             icon: <GlobeIcon className="w-7 h-7 text-white" />,
-            stats: stats ? stats.overview.redasTrainingSessions.toString() : '—',
+            stats: stats?.overview.redasTrainingSessions.toString() || '0',
             trend: 'Active training programs',
             color: toolTheme.redas,
             href: '/redas',
@@ -518,7 +459,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             description:
                 'Mental health screening tool for disaster-affected communities',
             icon: <ShieldCheck className="w-7 h-7 text-white" />,
-            stats: stats ? stats.overview.totalUnahonAssessments.toString() : '—',
+            stats: stats?.overview.totalUnahonAssessments.toString() || '0',
             trend: stats?.recent.recentUnahonAssessments
                 ? `+${stats.recent.recentUnahonAssessments} this month`
                 : '0 this month',
@@ -531,7 +472,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             description:
                 'Mental and physical health monitoring for disaster responders',
             icon: <Heart className="w-7 h-7 text-white" />,
-            stats: stats ? stats.overview.totalQuestionnaires.toString() : '—',
+            stats: stats?.overview.totalQuestionnaires.toString() || '0',
             trend: stats?.recent.recentSubmissions
                 ? `+${stats.recent.recentSubmissions} this month`
                 : '0 this month',
@@ -649,7 +590,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
     // Best-effort "My recent activities"
     const myRecentActivities =
-        recentActivities.filter((a) => {
+        stats?.recentActivities?.filter((a) => {
             const activityUser = (a.user || '').toLowerCase();
             if (!activityUser) return false;
 
@@ -666,7 +607,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         const responderMetrics: MetricCardProps[] = [
     {
         title: 'Total Incidents',
-        value: stats ? stats.overview.totalIncidents : '—',
+        value: stats?.overview.totalIncidents || 0,
         subtitle: 'Submitted reports',
         icon: <AlertTriangle className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]',
@@ -677,7 +618,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     },
     {
         title: 'Mi Salud Records',
-        value: stats ? stats.overview.totalQuestionnaires : '—',
+        value: stats?.overview.totalQuestionnaires || 0,
         subtitle: 'Health Assessments',
         icon: <Heart className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]',
@@ -688,7 +629,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     },
     {
         title: 'Unahon Records',
-        value: stats ? stats.overview.totalUnahonAssessments : '—',
+        value: stats?.overview.totalUnahonAssessments || 0,
         subtitle: 'Submitted Assessments',
         icon: <ShieldCheck className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
@@ -715,7 +656,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const standardMetrics: MetricCardProps[] = [
     {
         title: 'Total Incidents',
-        value: stats ? stats.overview.totalIncidents : '—',
+        value: stats?.overview.totalIncidents || 0,
         subtitle: 'Submitted reports',
         icon: <AlertTriangle className="w-7 h-7 text-white" />,
         color: 'bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]',
@@ -744,7 +685,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <MetricCard
             title="Total Users"
-            value={stats ? stats.overview.totalUsers : '—'}
+            value={stats?.overview.totalUsers || 0}
             subtitle="Active users"
             icon={<Users className="w-7 h-7 text-white" />}
             color="bg-gradient-to-br from-[#8B1538] via-[#A61B45] to-[#C12752]"
@@ -758,7 +699,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         <MetricCard
             title="Total Incidents"
-            value={stats ? stats.overview.totalIncidents : '—'}
+            value={stats?.overview.totalIncidents || 0}
             subtitle="Recorded incidents"
             icon={<AlertTriangle className="w-7 h-7 text-white" />}
             color="bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]"
@@ -772,7 +713,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         <MetricCard
             title="Mi Salud Records"
-            value={stats ? stats.overview.totalQuestionnaires : '—'}
+            value={stats?.overview.totalQuestionnaires || 0}
             subtitle="Health assessments"
             icon={<Heart className="w-7 h-7 text-white" />}
             color="bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]"
@@ -786,7 +727,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
         <MetricCard
             title="Unahon records"
-            value={stats ? stats.overview.totalUnahonAssessments : '—'}
+            value={stats?.overview.totalUnahonAssessments || 0}
             subtitle="Submitted assessments"
             icon={<ShieldCheck className="w-7 h-7 text-white" />}
             color="bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]"
@@ -801,7 +742,8 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 );
 
     const activitiesToShow =
-        isPersonalDashboard ? myRecentActivities : recentActivities;
+        (isPersonalDashboard ? myRecentActivities : stats?.recentActivities) ||
+        [];
 
     // ✅ metrics grid cols: Standard=3, Responder=4, Admin handled separately
     const metricsGridCols = isStandard ? 'lg:grid-cols-2' : 'lg:grid-cols-4';
@@ -900,16 +842,6 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                     </CardBody>
                 </Card>
 
-                {statsError && (
-                    <Card className="mb-6 border border-red-200 bg-red-50 rounded-[20px] shadow-sm">
-                        <CardBody className="py-4 px-5">
-                            <p className="text-sm font-semibold text-red-600">
-                                Failed to load dashboard stats: {statsError}
-                            </p>
-                        </CardBody>
-                    </Card>
-                )}
-
                 {/* Metrics */}
                 {isAdmin ? (
                     adminMetrics
@@ -989,21 +921,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
 
                                     <CardBody className="px-6 pb-6">
                                         <div className="space-y-4">
-                                            {loadingActivity ? (
-                                                <div className="text-center py-10 text-slate-500">
-                                                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FBE4E8] to-[#F6D4DA]">
-                                                        <Clock className="w-7 h-7 text-[#B0122B]" />
-                                                    </div>
-                                                    <p className="font-medium">Loading recent activities...</p>
-                                                </div>
-                                            ) : activityError ? (
-                                                <div className="text-center py-10 text-red-500">
-                                                    <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
-                                                        <Clock className="w-7 h-7 text-red-500" />
-                                                    </div>
-                                                    <p className="font-medium">Failed to load recent activities</p>
-                                                </div>
-                                            ) : activitiesToShow.length ? (
+                                            {activitiesToShow.length ? (
                                                 activitiesToShow.slice(0, 5).map((activity, index) => (
                                                     <div
                                                         key={index}
