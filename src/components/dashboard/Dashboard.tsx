@@ -2,6 +2,7 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import {
     Card,
@@ -281,11 +282,24 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const router = useRouter();
     const { isOpen, onOpenChange, onOpen } = useDisclosure();
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [chartsData, setChartsData] = useState<DashboardChartsData | null>(
-        null
-    );
-    const [loading, setLoading] = useState(true);
+    const {
+        data: stats = null,
+        isLoading: loading,
+    } = useQuery<DashboardStats | null>({
+        queryKey: ['dashboard-stats'],
+        queryFn: async () => {
+            const response = await fetch('/api/dashboard/stats');
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch dashboard stats');
+            }
+
+            return result.data;
+        },
+        staleTime: 2 * 60 * 1000,
+    });
+
     const [selectedTab, setSelectedTab] = useState('overview');
     const [avatarError, setAvatarError] = useState(false);
 
@@ -298,49 +312,29 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const isResponder = role === UserType.RESPONDER;
     const isStandard = role === UserType.STANDARD;
 
+    const {
+        data: chartsData = null,
+    } = useQuery<DashboardChartsData | null>({
+        queryKey: ['dashboard-charts'],
+        queryFn: async () => {
+            const response = await fetch('/api/dashboard/charts');
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch dashboard charts');
+            }
+
+            return result.data;
+        },
+        enabled: isAdmin && selectedTab === 'analytics',
+        staleTime: 5 * 60 * 1000,
+    });
+
     // "My dashboard" view for Responder + Standard
     const isPersonalDashboard = isResponder || isStandard;
 
     const currentUserEmail = session?.user?.email?.toLowerCase() || '';
     const currentUserName = session?.user?.name?.toLowerCase() || '';
-
-    useEffect(() => {
-        const fetchDashboardStats = async () => {
-            try {
-                setLoading(true);
-
-                const statsResponse = await fetch('/api/dashboard/stats');
-                const statsData = await statsResponse.json();
-
-                if (statsData.success) setStats(statsData.data);
-            } catch (error) {
-                console.error('Error fetching dashboard stats:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDashboardStats();
-    }, []);
-
-    useEffect(() => {
-        if (!isAdmin) return;
-        if (selectedTab !== 'analytics') return;
-        if (chartsData) return;
-
-        const fetchChartsData = async () => {
-            try {
-                const chartsResponse = await fetch('/api/dashboard/charts');
-                const chartsResult = await chartsResponse.json();
-
-                if (chartsResult.success) setChartsData(chartsResult.data);
-            } catch (error) {
-                console.error('Error fetching dashboard charts:', error);
-            }
-        };
-
-        fetchChartsData();
-    }, [isAdmin, selectedTab, chartsData]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
