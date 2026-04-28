@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { ChevronDown, Link2, ArrowLeft } from 'lucide-react';
 import {
@@ -23,11 +24,7 @@ const REDAS = () => {
         'relative overflow-hidden rounded-3xl border border-white/70 ' +
         'shadow-[0_0_0_1.5px_rgba(255,255,255,0.78),0_16px_40px_rgba(0,0,0,0.16)]';
     const [selectedLabel, setSelectedLabel] = useState('PROVINCES');
-    const [places, setPlaces] = useState<string[]>([]);
     const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
-    const [data, setData] = useState<PlaceData[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [placesLoading, setPlacesLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     const labels = [
@@ -45,55 +42,48 @@ const REDAS = () => {
         return text.replace(/ /g, '+');
     };
 
-    useEffect(() => {
-        const fetchPlaces = async () => {
-            setPlacesLoading(true);
-            setLoading(true);
-            setPlaces([]);
-            setData([]);
-            try {
-                const response = await fetch(
-                    `/api/redas?sheetName=Trainings&label=${encodeForUrl(selectedLabel)}`
-                );
-                const result = await response.json();
-                setPlaces(
-                    (result || []).sort((a: string, b: string) =>
-                        a.localeCompare(b)
-                    )
-                );
-                setSelectedPlace(result[0]);
-            } catch (error) {
-                console.error('Error fetching places:', error);
-                setLoading(false);
-            } finally {
-                setPlacesLoading(false);
-            }
-        };
+    const {
+        data: places = [],
+        isLoading: placesLoading,
+    } = useQuery<string[]>({
+        queryKey: ['redas-places', selectedLabel],
+        queryFn: async () => {
+            const response = await fetch(
+                `/api/redas?sheetName=Trainings&label=${encodeForUrl(selectedLabel)}`
+            );
 
-        fetchPlaces();
-    }, [selectedLabel]);
+            const result = await response.json();
+
+            return Array.isArray(result)
+                ? result.sort((a: string, b: string) => a.localeCompare(b))
+                : [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     useEffect(() => {
-        if (!selectedPlace) return;
+        setSelectedPlace(places[0] || null);
+    }, [places]);
 
-        const fetchData = async () => {
-            setLoading(true);
-            setData([]);
-            try {
-                const response = await fetch(
-                    `/api/redas?sheetName=${encodeForUrl('Trainings')}&label=${encodeForUrl(selectedLabel)}&place=${encodeForUrl(selectedPlace)}`
-                );
-                const result = await response.json();
-                setData(result[selectedPlace] || []);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const {
+        data = [],
+        isLoading: dataLoading,
+    } = useQuery<PlaceData[]>({
+        queryKey: ['redas-training-data', selectedLabel, selectedPlace],
+        queryFn: async () => {
+            const response = await fetch(
+                `/api/redas?sheetName=${encodeForUrl('Trainings')}&label=${encodeForUrl(selectedLabel)}&place=${encodeForUrl(selectedPlace || '')}`
+            );
 
-        fetchData();
-    }, [selectedPlace, selectedLabel]);
+            const result = await response.json();
+
+            return selectedPlace ? result[selectedPlace] || [] : [];
+        },
+        enabled: !!selectedPlace,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const loading = placesLoading || dataLoading;
 
     function extractFileId(url: string) {
         const match = url.match(/[-\w]{25,}/);

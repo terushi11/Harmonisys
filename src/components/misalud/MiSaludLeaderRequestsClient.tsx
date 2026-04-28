@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Session } from 'next-auth';
 import {
     Card,
@@ -37,33 +38,36 @@ interface Props {
 
 const MiSaludLeaderRequestsClient = ({ session }: Props) => {
     const router = useRouter();
-    const [requests, setRequests] = useState<MiSaludRequest[]>([]);
-    const [team, setTeam] = useState<TeamInfo | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [processingId, setProcessingId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
-    const fetchRequests = async () => {
-        try {
-            setLoading(true);
-            const res = await fetch('/api/misalud/leader/requests');
-            const data = await res.json();
+    const {
+        data: leaderRequestsData,
+        isLoading: loading,
+    } = useQuery<{
+        requests: MiSaludRequest[];
+        team: TeamInfo | null;
+    }>({
+        queryKey: ['misalud-leader-requests'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/leader/requests');
+            const result = await response.json();
 
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to fetch requests');
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch requests');
             }
 
-            setRequests(data.requests || []);
-            setTeam(data.team || null);
-        } catch (error) {
-            console.error('Error fetching Team Leader requests:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+            return {
+                requests: result.requests || [],
+                team: result.team || null,
+            };
+        },
+        staleTime: 2 * 60 * 1000,
+    });
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
+    const requests = leaderRequestsData?.requests || [];
+    const team = leaderRequestsData?.team || null;
+
+    const [processingId, setProcessingId] = useState<string | null>(null);
 
     const handleApprove = async (id: string) => {
         try {
@@ -85,7 +89,9 @@ const MiSaludLeaderRequestsClient = ({ session }: Props) => {
                 throw new Error(data.error || 'Failed to approve request');
             }
 
-            await fetchRequests();
+            await queryClient.invalidateQueries({
+                queryKey: ['misalud-leader-requests'],
+            });
         } catch (error) {
             console.error('Approve error:', error);
             alert(
@@ -123,7 +129,9 @@ const MiSaludLeaderRequestsClient = ({ session }: Props) => {
                 throw new Error(data.error || 'Failed to reject request');
             }
 
-            await fetchRequests();
+            await queryClient.invalidateQueries({
+                queryKey: ['misalud-leader-requests'],
+            });
         } catch (error) {
             console.error('Reject error:', error);
             alert(

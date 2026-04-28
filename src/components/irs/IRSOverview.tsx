@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardBody, CardHeader, Button } from '@heroui/react';
@@ -192,11 +193,31 @@ export default function IRSOverview({
   const [open, setOpen] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [loading, setLoading] = useState(false);
-
   const [statsInView, setStatsInView] = useState(false);
   const [locInView, setLocInView] = useState(false);
+
+  const shouldFetchIncidents = canSeeAnalytics && (statsInView || locInView);
+
+  const {
+    data: incidents = [],
+    isLoading: loading,
+    refetch: refetchIncidents,
+  } = useQuery<Incident[]>({
+    queryKey: ['irs-incidents-lite', userRole],
+    queryFn: async () => {
+      const response = await fetch('/api/admin/incidents?lite=1');
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch incidents: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      return Array.isArray(result?.data) ? result.data : [];
+    },
+    enabled: shouldFetchIncidents,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const statsRef = useRef<HTMLDivElement | null>(null);
   const locRef = useRef<HTMLDivElement | null>(null);
@@ -206,37 +227,6 @@ export default function IRSOverview({
 
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const regionDropdownRef = useRef<HTMLDivElement | null>(null);
-
-  const fetchIncidents = useCallback(async () => {
-    if (!canSeeAnalytics && userRole !== 'ADMIN') return;
-
-    setLoading(true);
-    try {
-      const response = await fetch('/api/admin/incidents?lite=1', {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch incidents: ${response.status}`);
-      }
-
-      const result = await response.json();
-      setIncidents(Array.isArray(result?.data) ? (result.data as Incident[]) : []);
-    } catch (error) {
-      console.error('Error fetching incidents:', error);
-      setIncidents([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [canSeeAnalytics, userRole]);
-
-  useEffect(() => {
-    if (!canSeeAnalytics) return;
-    if (!statsInView && !locInView) return;
-    if (incidents.length > 0) return;
-
-    fetchIncidents();
-  }, [canSeeAnalytics, statsInView, locInView, incidents.length, fetchIncidents]);
 
   useEffect(() => {
     const makeObserver = (onEnter: () => void, onExit?: () => void) =>
@@ -351,7 +341,7 @@ export default function IRSOverview({
   const handleCloseModal = () => setOpen(false);
 
   const handleReportSuccess = async () => {
-    await fetchIncidents();
+    await refetchIncidents();
     setShowSuccessDialog(true);
   };
 

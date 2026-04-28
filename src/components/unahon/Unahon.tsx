@@ -24,21 +24,49 @@ import {
 } from 'lucide-react';
 import { AssessmentType } from '@prisma/client';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import UnahonForm from '@/components/unahon/UnahonForm';
 import Link from 'next/link';
 
 const Unahon = ({ session }: UnahonDashboardProps) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [summary, setSummary] = useState<UnahonSummary | null>(null);
+  const {
+    data: unahonDashboardData,
+    isLoading,
+    refetch: refetchUnahonDashboard,
+  } = useQuery({
+    queryKey: ['unahon-dashboard'],
+    queryFn: async () => {
+      const [summaryData, pendingRes] = await Promise.all([
+        getUnahonFormsSummary(),
+        fetch('/api/unahon/reassess/pending'),
+      ]);
+
+      const pendingData = await pendingRes.json();
+
+      return {
+        summary: summaryData,
+        hasPendingReassessment:
+          pendingRes.ok && pendingData.hasPending ? true : false,
+        pendingRequest:
+          pendingRes.ok && pendingData.hasPending
+            ? pendingData.pendingRequest
+            : null,
+      };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const summary = unahonDashboardData?.summary ?? null;
+  const hasPendingReassessment =
+    unahonDashboardData?.hasPendingReassessment ?? false;
+  const pendingRequest = unahonDashboardData?.pendingRequest ?? null;
+
   const [showManagement, setShowManagement] = useState(true);
 
   const [isUnahonView, setIsUnahonView] = useState<boolean>(false);
   const [isReassessment, setIsReassessment] = useState<boolean>(false);
-  const [hasPendingReassessment, setHasPendingReassessment] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState<any>(null);
 
-  
   const [currentUnahonProps, setCurrentUnahonProps] = useState<UnahonProps>({
     session: session!,
     isViewOnly: false,
@@ -92,38 +120,6 @@ const isResponderView = userRole === 'RESPONDER';
     HERO_BTN_BASE +
     ' bg-white text-[#7A0C1E] border border-white/20 hover:bg-white/90';
 
-
-    const fetchUnahonDashboardData = async () => {
-      setIsLoading(true);
-
-      try {
-        const [summaryData, pendingRes] = await Promise.all([
-          getUnahonFormsSummary(),
-          fetch('/api/unahon/reassess/pending'),
-        ]);
-
-        setSummary(summaryData);
-
-        const pendingData = await pendingRes.json();
-
-        if (pendingRes.ok && pendingData.hasPending) {
-          setHasPendingReassessment(true);
-          setPendingRequest(pendingData.pendingRequest);
-        } else {
-          setHasPendingReassessment(false);
-          setPendingRequest(null);
-        }
-      } catch (error) {
-        console.log('Error loading Unahon data', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    useEffect(() => {
-      fetchUnahonDashboardData();
-    }, []);
-
   const handleManagementStateChange = (isViewing: boolean) => {
     setShowManagement(!isViewing);
   };
@@ -149,7 +145,7 @@ const isResponderView = userRole === 'RESPONDER';
       isReassessment: false,
     });
 
-    await fetchUnahonDashboardData();
+    await refetchUnahonDashboard();
   };
 
   const handleStartReassessment = () => {

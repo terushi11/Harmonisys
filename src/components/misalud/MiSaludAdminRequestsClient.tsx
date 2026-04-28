@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Session } from 'next-auth';
 import {
     Card,
@@ -89,13 +90,69 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
 
     const [selectedTab, setSelectedTab] = useState('requests');
 
-    const [requests, setRequests] = useState<MiSaludRequest[]>([]);
-    const [users, setUsers] = useState<MiSaludUserRow[]>([]);
-    const [submissions, setSubmissions] = useState<MiSaludSubmissionRow[]>([]);
+    const queryClient = useQueryClient();
 
-    const [loadingRequests, setLoadingRequests] = useState(true);
-    const [loadingUsers, setLoadingUsers] = useState(true);
-    const [loadingSubmissions, setLoadingSubmissions] = useState(true);
+    const refreshAdminData = async () => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['misalud-admin-requests'] }),
+            queryClient.invalidateQueries({ queryKey: ['misalud-admin-users'] }),
+            queryClient.invalidateQueries({ queryKey: ['misalud-admin-submissions'] }),
+        ]);
+    };
+
+    const {
+        data: requests = [],
+        isLoading: loadingRequests,
+    } = useQuery<MiSaludRequest[]>({
+        queryKey: ['misalud-admin-requests'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/admin/requests');
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch requests');
+            }
+
+            return result.requests || [];
+        },
+        staleTime: 2 * 60 * 1000,
+    });
+
+    const {
+        data: users = [],
+        isLoading: loadingUsers,
+    } = useQuery<MiSaludUserRow[]>({
+        queryKey: ['misalud-admin-users'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/admin/users');
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch users');
+            }
+
+            return result.users || [];
+        },
+        staleTime: 2 * 60 * 1000,
+    });
+
+    const {
+        data: submissions = [],
+        isLoading: loadingSubmissions,
+    } = useQuery<MiSaludSubmissionRow[]>({
+        queryKey: ['misalud-admin-submissions'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/admin/submissions');
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch submissions');
+            }
+
+            return result.submissions || [];
+        },
+        staleTime: 2 * 60 * 1000,
+    });
 
     const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -109,75 +166,7 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
     const [submissionSearchQuery, setSubmissionSearchQuery] = useState('');
     const [submissionTeamFilter, setSubmissionTeamFilter] = useState('ALL');
 
-    const fetchRequests = async () => {
-        try {
-            setLoadingRequests(true);
-
-            const res = await fetch('/api/misalud/admin/requests');
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to fetch requests');
-            }
-
-            setRequests(data.requests || []);
-        } catch (error) {
-            console.error('Error fetching Mi Salud admin requests:', error);
-        } finally {
-            setLoadingRequests(false);
-        }
-    };
-
-    const fetchUsers = async () => {
-        try {
-            setLoadingUsers(true);
-
-            const res = await fetch('/api/misalud/admin/users');
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to fetch users');
-            }
-
-            setUsers(data.users || []);
-        } catch (error) {
-            console.error('Error fetching Mi Salud admin users:', error);
-        } finally {
-            setLoadingUsers(false);
-        }
-    };
-
-    const fetchSubmissions = async () => {
-        try {
-            setLoadingSubmissions(true);
-
-            const res = await fetch('/api/misalud/admin/submissions');
-            const data = await res.json();
-
-            if (!res.ok) {
-                throw new Error(data.error || 'Failed to fetch submissions');
-            }
-
-            setSubmissions(data.submissions || []);
-        } catch (error) {
-            console.error('Error fetching Mi Salud admin submissions:', error);
-        } finally {
-            setLoadingSubmissions(false);
-        }
-    };
-
-    const fetchAll = async () => {
-        await Promise.all([
-            fetchRequests(),
-            fetchUsers(),
-            fetchSubmissions(),
-        ]);
-    };
-
-    useEffect(() => {
-        fetchAll();
-    }, []);
-
+    
     const handleApprove = async (id: string) => {
         try {
             setProcessingId(id);
@@ -198,7 +187,7 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                 throw new Error(data.error || 'Failed to approve request');
             }
 
-            await fetchAll();
+            await refreshAdminData();
         } catch (error) {
             console.error('Approve error:', error);
             alert(
@@ -247,7 +236,7 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
             setSelectedRejectId(null);
             setRejectionReason('');
 
-            await fetchAll();
+            await refreshAdminData();
         } catch (error) {
             console.error('Reject error:', error);
             alert(

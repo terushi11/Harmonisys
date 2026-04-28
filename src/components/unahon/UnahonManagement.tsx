@@ -43,11 +43,9 @@ import {
   Trash2,
   ArrowLeft,
 } from 'lucide-react';
-import useSWR from 'swr';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { unahonDashboardCols } from '@/constants';
 import type { Session } from 'next-auth';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 // Filter options
 const assessmentFilterOptions = [
@@ -153,6 +151,7 @@ const maroonUI = {
 
 const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: UnahonManagementProps) => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const rowsPerPage = 10;
   const [page, setPage] = useState<number>(1);
   const [rows, setRows] = useState<FormRow[]>([]);
@@ -189,8 +188,25 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
     return `/api/unahon?${params.toString()}`;
   }, [page, searchQuery, assessmentTypeFilter, dateFilter]);
 
-  const { data, isLoading, mutate } = useSWR<UnahonApiResponse>(apiUrl, fetcher, {
-    keepPreviousData: true,
+  const { data, isLoading } = useQuery<UnahonApiResponse>({
+    queryKey: [
+      'unahon-management',
+      page,
+      searchQuery,
+      assessmentTypeFilter,
+      dateFilter,
+    ],
+    queryFn: async () => {
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch Unahon assessments');
+      }
+
+      return response.json();
+    },
+    placeholderData: (previousData) => previousData,
+    staleTime: 2 * 60 * 1000,
   });
   // Statistics calculation
   const statistics = useMemo(() => {
@@ -298,7 +314,9 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       setSuccessMessage('Reassessment request sent to the user.');
       setSuccessModalOpen(true);
 
-      await mutate();
+      await queryClient.invalidateQueries({
+        queryKey: ['unahon-management'],
+      });
     } catch (error) {
       console.error(error);
       setReassessConfirmOpen(false);
@@ -307,7 +325,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       setSuccessMessage('Failed to send reassessment request.');
       setSuccessModalOpen(true);
     }
-  }, [selectedReassessItem, mutate]);
+  }, [selectedReassessItem, queryClient]);
 
     const openDeleteConfirm = useCallback((item: FormRow) => {
   setSelectedDeleteItem(item);
@@ -334,7 +352,9 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       setSuccessMessage('Assessment deleted successfully.');
       setSuccessModalOpen(true);
 
-      await mutate();
+      await queryClient.invalidateQueries({
+        queryKey: ['unahon-management'],
+      });
     } catch (error) {
       console.error(error);
       setDeleteConfirmOpen(false);
@@ -343,7 +363,7 @@ const UnahonManagement = ({ session, onStateChange, onUnahonStateChange }: Unaho
       setSuccessMessage('Failed to delete assessment.');
       setSuccessModalOpen(true);
     }
-  }, [selectedDeleteItem, mutate]);
+  }, [selectedDeleteItem, queryClient]);
 
   const renderCell = useCallback(
     (item: FormRow, columnKey: string | number) => {

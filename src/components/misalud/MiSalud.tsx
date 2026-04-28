@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardBody, CardHeader, Button } from '@heroui/react';
 import { useRouter } from 'next/navigation';
 import type {
@@ -83,18 +84,76 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     // Original data (for archive)
-    const [teamsData, setTeamsData] = useState<Team[]>([]);
-    const [eventsData, setEventsData] = useState<Event[]>([]);
-    const [loadingOriginal, setLoadingOriginal] = useState(true);
+    const {
+        data: teamsData = [],
+        isLoading: loadingTeams,
+    } = useQuery<Team[]>({
+        queryKey: ['misalud-teams'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/teams');
+            const result = await response.json();
 
-    // New questionnaire data (main display)
-    const [questionnaireData, setQuestionnaireData] =
-        useState<QuestionnaireData>({ submissions: [] });
-    const [loadingQuestionnaire, setLoadingQuestionnaire] = useState(true);
+            if (!response.ok) {
+                throw new Error('Failed to fetch teams data');
+            }
 
-    // New incidents data (for events view) - converted to frontend type
-    const [incidentsData, setIncidentsData] = useState<Incident[]>([]);
-    const [loadingIncidents, setLoadingIncidents] = useState(true);
+            return result.data || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const {
+        data: eventsData = [],
+        isLoading: loadingEvents,
+    } = useQuery<Event[]>({
+        queryKey: ['misalud-screenings'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/screenings');
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch events data');
+            }
+
+            return result.data || [];
+        },
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const {
+        data: questionnaireData = { submissions: [] },
+        isLoading: loadingQuestionnaire,
+    } = useQuery<QuestionnaireData>({
+        queryKey: ['misalud-health'],
+        queryFn: async () => {
+            const response = await fetch('/api/misalud/health');
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch questionnaire data');
+            }
+
+            return response.json();
+        },
+        staleTime: 2 * 60 * 1000,
+    });
+
+    const {
+        data: incidentsData = [],
+        isLoading: loadingIncidents,
+    } = useQuery<Incident[]>({
+        queryKey: ['misalud-incidents'],
+        queryFn: async () => {
+            const response = await fetch('/api/irs/incidents');
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch incidents data');
+            }
+
+            const result = await response.json();
+            return result.map(parseIncidentDates);
+        },
+        staleTime: 2 * 60 * 1000,
+    });
 
     const [showQuestionnaireModal, setShowQuestionnaireModal] = useState(false);
     const [showRegistrationModal, setShowRegistrationModal] = useState(false);
@@ -109,15 +168,37 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     });
 
     // 🔥 MiSalud Membership State
-    const [membershipStatus, setMembershipStatus] = useState<
-        'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED'
-    >('NONE');
+    const {
+        data: membershipResult,
+        isLoading: loadingMembership,
+        refetch: refetchMembership,
+    } = useQuery({
+        queryKey: ['misalud-membership', isAdminView],
+        queryFn: async () => {
+            if (isAdminView) {
+                return {
+                    status: 'APPROVED' as const,
+                    membership: {
+                        role: 'ADMIN',
+                        teamName: 'Admin Access',
+                    },
+                };
+            }
 
-    const [membershipData, setMembershipData] = useState<any>(null);
+            const response = await fetch('/api/misalud/membership');
+            return response.json();
+        },
+        staleTime: 2 * 60 * 1000,
+    });
+
+    const membershipStatus =
+        membershipResult?.status || 'NONE';
+
+    const membershipData = membershipResult?.membership || null;
+
     const isApprovedTeamLeader =
     membershipStatus === 'APPROVED' &&
     membershipData?.role === 'TEAM_LEADER';
-    const [loadingMembership, setLoadingMembership] = useState(true);
 
     const handleRecommendations = (
         responses: QuestionnaireResponses,
@@ -126,112 +207,6 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
         setRecommendations(generateRecommendations(responses));
         setFormData(formData);
     };
-
-    // Fetch original teams data
-    const fetchTeamsData = async () => {
-        try {
-            const response = await fetch('/api/misalud/teams');
-            if (!response.ok) {
-                throw new Error('Failed to fetch teams data');
-            }
-            const data = await response.json();
-
-            if (data.data) {
-                setTeamsData(data.data);
-            } else {
-                console.error('No teams data found');
-            }
-        } catch (error) {
-            console.error('Error fetching teams data:', error);
-        }
-    };
-
-    // Fetch original events data
-    const fetchEventsData = async () => {
-        try {
-            const response = await fetch('/api/misalud/screenings');
-            if (!response.ok) {
-                throw new Error('Failed to fetch events data');
-            }
-            const data = await response.json();
-
-            if (data.data) {
-                setEventsData(data.data);
-            } else {
-                console.error('No events data found');
-            }
-        } catch (error) {
-            console.error('Error fetching events data:', error);
-        } finally {
-            setLoadingOriginal(false);
-        }
-    };
-
-    // Fetch new questionnaire data
-    const fetchQuestionnaireData = async () => {
-        try {
-            const response = await fetch('/api/misalud/health');
-            if (!response.ok) {
-                throw new Error('Failed to fetch questionnaire data');
-            }
-            const data = await response.json();
-            setQuestionnaireData(data);
-        } catch (error) {
-            console.error('Error fetching questionnaire data:', error);
-        } finally {
-            setLoadingQuestionnaire(false);
-        }
-    };
-
-    // Fetch incidents data
-    const fetchIncidentsData = async () => {
-        try {
-            const response = await fetch('/api/irs/incidents');
-            if (!response.ok) {
-                throw new Error('Failed to fetch incidents data');
-            }
-            const data = await response.json();
-            setIncidentsData(data.map(parseIncidentDates));
-        } catch (error) {
-            console.error('Error fetching incidents data:', error);
-        } finally {
-            setLoadingIncidents(false);
-        }
-    };
-
-    const fetchMembership = async () => {
-        setLoadingMembership(true);
-
-        if (isAdminView) {
-            setMembershipStatus('APPROVED');
-            setMembershipData({
-                role: 'ADMIN',
-                teamName: 'Admin Access',
-            });
-            setLoadingMembership(false);
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/misalud/membership');
-            const data = await res.json();
-
-            setMembershipStatus(data.status);
-            setMembershipData(data.membership);
-        } catch (error) {
-            console.error('Error fetching membership:', error);
-        } finally {
-            setLoadingMembership(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchTeamsData();
-        fetchEventsData();
-        fetchQuestionnaireData();
-        fetchIncidentsData();
-        fetchMembership();
-    }, []);
 
     // Group questionnaire submissions by team
     const teamGroups = useMemo(() => {
@@ -417,11 +392,13 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
     };
 
     const isArchiveView = selectedFilter === 'archive';
+    const loadingOriginal = loadingTeams || loadingEvents;
+
     const isLoading = isArchiveView
         ? loadingOriginal
         : selectedView === 'teams'
-          ? loadingQuestionnaire
-          : loadingIncidents;
+        ? loadingQuestionnaire
+        : loadingIncidents;
 
     return (
         <div className="min-h-screen bg-emerald-50 relative">
@@ -679,7 +656,7 @@ const MiSalud = ({ userRole = 'STANDARD' }: MiSaludProps) => {
                                     onCancel={() => setShowRegistrationModal(false)}
                                     onSuccess={async () => {
                                         setShowRegistrationModal(false);
-                                        await fetchMembership();
+                                        await refetchMembership();
                                     }}
                                 />
                             </CardBody>

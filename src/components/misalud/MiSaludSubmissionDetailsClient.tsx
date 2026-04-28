@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
     Card,
     CardBody,
@@ -49,31 +49,25 @@ const formatDate = (value?: string | null) => {
 
 const MiSaludSubmissionDetailsClient = ({ submissionId }: Props) => {
     const router = useRouter();
-    const [submission, setSubmission] = useState<SubmissionDetails | null>(null);
-    const [loading, setLoading] = useState(true);
+    const {
+        data: submission = null,
+        isLoading: loading,
+    } = useQuery<SubmissionDetails | null>({
+        queryKey: ['misalud-submission-details', submissionId],
+        queryFn: async () => {
+            const response = await fetch(
+                `/api/misalud/admin/submissions/${submissionId}`
+            );
+            const result = await response.json();
 
-    useEffect(() => {
-        const fetchSubmission = async () => {
-            try {
-                setLoading(true);
-
-                const res = await fetch(`/api/misalud/admin/submissions/${submissionId}`);
-                const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.error || 'Failed to fetch submission');
-                }
-
-                setSubmission(data.submission);
-            } catch (error) {
-                console.error('Error fetching submission details:', error);
-            } finally {
-                setLoading(false);
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch submission');
             }
-        };
 
-        fetchSubmission();
-    }, [submissionId]);
+            return result.submission || null;
+        },
+        staleTime: 5 * 60 * 1000,
+    });
 
     return (
         <div className="min-h-screen bg-emerald-50">

@@ -1,42 +1,26 @@
-import { useEffect, useState, useRef } from 'react';
+import { useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Training } from '@/types/Redas';
 
 const EDMTrainings = () => {
-    const [trainings, setTrainings] = useState<Training[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [, setScrolled] = useState(false);
+    const {
+        data: trainings = [],
+        isLoading: loading,
+        isError,
+    } = useQuery<Training[]>({
+        queryKey: ['redas-edm-trainings'],
+        queryFn: async () => {
+            const response = await fetch('/api/redas?sheetName=EDM Trainings');
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch trainings');
+            }
+
+            return response.json();
+        },
+        staleTime: 5 * 60 * 1000,
+    });
     const scrollRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        fetch('/api/redas?sheetName=EDM Trainings')
-            .then((res) => res.json())
-            .then((data) => {
-                setTrainings(data);
-                setLoading(false);
-            })
-            .catch(() => {
-                setError('Failed to fetch trainings');
-                setLoading(false);
-            });
-    }, []);
-
-    useEffect(() => {
-        const handleScroll = () => {
-            if (scrollRef.current) {
-                setScrolled(scrollRef.current.scrollTop > 0);
-            }
-        };
-        const div = scrollRef.current;
-        if (div) {
-            div.addEventListener('scroll', handleScroll);
-        }
-        return () => {
-            if (div) {
-                div.removeEventListener('scroll', handleScroll);
-            }
-        };
-    }, []);
 
     return (
         <div
@@ -48,8 +32,10 @@ const EDMTrainings = () => {
                 <div className="text-center text-slate-500 py-8">
                     Loading...
                 </div>
-            ) : error ? (
-                <div className="text-center text-red-500 py-8">{error}</div>
+            ) : isError ? (
+                <div className="text-center text-red-500 py-8">
+                    Failed to fetch trainings
+                </div>
             ) : (
                 <table className="min-w-full text-sm text-slate-700">
                     <thead className="sticky top-0 z-10 bg-blue-50/90 backdrop-blur-sm border-b border-blue-100">
