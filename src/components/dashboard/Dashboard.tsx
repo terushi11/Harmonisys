@@ -604,7 +604,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         value: stats?.overview.totalIncidents || 0,
         subtitle: 'Submitted reports',
         icon: <AlertTriangle className="w-7 h-7 text-white" />,
-        color: 'bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]',
+        color: "bg-gradient-to-br from-[#7A0000] via-[#900000] to-[#A50000]",
         cardBg: 'bg-gradient-to-br from-[#B0122B]/8 via-[#B0122B]/4 to-white',
         cardBorder: 'border border-[#B0122B]/20',
         subtitleBg: 'bg-[#B0122B]/8 border border-[#B0122B]/18',
@@ -615,7 +615,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         value: stats?.overview.totalQuestionnaires || 0,
         subtitle: 'Health Assessments',
         icon: <Heart className="w-7 h-7 text-white" />,
-        color: 'bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]',
+        color: "bg-gradient-to-br from-[#900000] via-[#B00000] to-[#C40000]",
         cardBg: 'bg-gradient-to-br from-[#7A0C1E]/8 via-[#7A0C1E]/4 to-white',
         cardBorder: 'border border-[#7A0C1E]/20',
         subtitleBg: 'bg-[#7A0C1E]/8 border border-[#7A0C1E]/18',
@@ -626,7 +626,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         value: stats?.overview.totalUnahonAssessments || 0,
         subtitle: 'Submitted Assessments',
         icon: <ShieldCheck className="w-7 h-7 text-white" />,
-        color: 'bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]',
+        color: "bg-gradient-to-br from-[#B00000] via-[#D00000] to-[#E00000]",
         cardBg: 'bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white',
         cardBorder: 'border border-[#6B0F25]/20',
         subtitleBg: 'bg-[#6B0F25]/8 border border-[#6B0F25]/18',
@@ -639,7 +639,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             : '—',
         subtitle: 'Latest action',
         icon: <Clock className="w-7 h-7 text-white" />,
-        color: 'bg-gradient-to-br from-[#5B0A0A] via-[#741010] to-[#8E1717]',
+        color: "bg-gradient-to-br from-[#D00000] via-[#F00000] to-[#FF0000]",
         cardBg: 'bg-gradient-to-br from-[#5B0A0A]/8 via-[#5B0A0A]/4 to-white',
         cardBorder: 'border border-[#5B0A0A]/20',
         subtitleBg: 'bg-[#5B0A0A]/8 border border-[#5B0A0A]/18',
@@ -682,7 +682,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             value={stats?.overview.totalUsers || 0}
             subtitle="Active users"
             icon={<Users className="w-7 h-7 text-white" />}
-            color="bg-gradient-to-br from-[#8B1538] via-[#A61B45] to-[#C12752]"
+            color="bg-gradient-to-br from-[#7A0000] via-[#900000] to-[#A50000]"
             cardBg="bg-gradient-to-br from-[#8B1538]/8 via-[#8B1538]/4 to-white"
             cardBorder="border border-[#8B1538]/20"
             subtitleBg="bg-[#8B1538]/8 border border-[#8B1538]/18"
@@ -696,7 +696,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             value={stats?.overview.totalIncidents || 0}
             subtitle="Recorded incidents"
             icon={<AlertTriangle className="w-7 h-7 text-white" />}
-            color="bg-gradient-to-br from-[#B0122B] via-[#C4162F] to-[#D62839]"
+            color="bg-gradient-to-br from-[#900000] via-[#B00000] to-[#C40000]"
             cardBg="bg-gradient-to-br from-[#B0122B]/8 via-[#B0122B]/4 to-white"
             cardBorder="border border-[#B0122B]/20"
             subtitleBg="bg-[#B0122B]/8 border border-[#B0122B]/18"
@@ -710,7 +710,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             value={stats?.overview.totalQuestionnaires || 0}
             subtitle="Health assessments"
             icon={<Heart className="w-7 h-7 text-white" />}
-            color="bg-gradient-to-br from-[#7A0C1E] via-[#931126] to-[#AE1832]"
+            color="bg-gradient-to-br from-[#B00000] via-[#D00000] to-[#E00000]"
             cardBg="bg-gradient-to-br from-[#7A0C1E]/8 via-[#7A0C1E]/4 to-white"
             cardBorder="border border-[#7A0C1E]/20"
             subtitleBg="bg-[#7A0C1E]/8 border border-[#7A0C1E]/18"
@@ -724,7 +724,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             value={stats?.overview.totalUnahonAssessments || 0}
             subtitle="Submitted assessments"
             icon={<ShieldCheck className="w-7 h-7 text-white" />}
-            color="bg-gradient-to-br from-[#6B0F25] via-[#7E1230] to-[#9A1840]"
+            color="bg-gradient-to-br from-[#D00000] via-[#F00000] to-[#FF0000]"
             cardBg="bg-gradient-to-br from-[#6B0F25]/8 via-[#6B0F25]/4 to-white"
             cardBorder="border border-[#6B0F25]/20"
             subtitleBg="bg-[#6B0F25]/8 border border-[#6B0F25]/18"

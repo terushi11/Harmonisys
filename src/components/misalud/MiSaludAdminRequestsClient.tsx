@@ -31,6 +31,9 @@ import {
     Clock3,
     HeartPulse,
     ClipboardList,
+    Trash2,
+    Edit3,
+    Save,
 } from 'lucide-react';
 
 type MiSaludRequest = {
@@ -161,10 +164,22 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
     const [rejectionReason, setRejectionReason] = useState('');
 
     const [userSearchQuery, setUserSearchQuery] = useState('');
-    const [userStatusFilter, setUserStatusFilter] = useState<'ALL' | 'APPROVED' | 'PENDING' | 'REJECTED'>('ALL');
+    const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'TEAM_LEADER' | 'TEAM_MEMBER'>('ALL');
+
+    const [editingTeamUserId, setEditingTeamUserId] = useState<string | null>(null);
+    const [editedTeamName, setEditedTeamName] = useState('');
+
+    const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
+    const [selectedDeleteUser, setSelectedDeleteUser] = useState<MiSaludUserRow | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [updatingTeamUserId, setUpdatingTeamUserId] = useState<string | null>(null);
 
     const [submissionSearchQuery, setSubmissionSearchQuery] = useState('');
     const [submissionTeamFilter, setSubmissionTeamFilter] = useState('ALL');
+
+    const [deleteSubmissionModalOpen, setDeleteSubmissionModalOpen] = useState(false);
+    const [selectedDeleteSubmission, setSelectedDeleteSubmission] = useState<MiSaludSubmissionRow | null>(null);
+    const [deletingSubmissionId, setDeletingSubmissionId] = useState<string | null>(null);
 
     
     const handleApprove = async (id: string) => {
@@ -204,6 +219,71 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
         setSelectedRejectId(id);
         setRejectionReason('');
         setRejectModalOpen(true);
+    };
+
+    const handleUpdateTeamName = async (user: MiSaludUserRow) => {
+        try {
+            setUpdatingTeamUserId(user.id);
+
+            const res = await fetch(`/api/misalud/admin/users/${user.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    teamName: editedTeamName.trim(),
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to update team name');
+            }
+
+            setEditingTeamUserId(null);
+            setEditedTeamName('');
+
+            await refreshAdminData();
+        } catch (error) {
+            console.error('Update team name error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to update team name');
+        } finally {
+            setUpdatingTeamUserId(null);
+        }
+    };
+
+    const openDeleteUserModal = (user: MiSaludUserRow) => {
+    setSelectedDeleteUser(user);
+    setDeleteUserModalOpen(true);
+};
+
+    const handleDeleteUserConfirm = async () => {
+        if (!selectedDeleteUser) return;
+
+        try {
+            setDeletingUserId(selectedDeleteUser.id);
+
+            const res = await fetch(`/api/misalud/admin/users/${selectedDeleteUser.id}`, {
+                method: 'DELETE',
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to delete Mi Salud user');
+            }
+
+            setDeleteUserModalOpen(false);
+            setSelectedDeleteUser(null);
+
+            await refreshAdminData();
+        } catch (error) {
+            console.error('Delete Mi Salud user error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to delete Mi Salud user');
+        } finally {
+            setDeletingUserId(null);
+        }
     };
 
     const handleRejectConfirm = async () => {
@@ -249,6 +329,39 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
         }
     };
 
+    const openDeleteSubmissionModal = (submission: MiSaludSubmissionRow) => {
+        setSelectedDeleteSubmission(submission);
+        setDeleteSubmissionModalOpen(true);
+    };
+
+    const handleDeleteSubmissionConfirm = async () => {
+        if (!selectedDeleteSubmission) return;
+
+        try {
+            setDeletingSubmissionId(selectedDeleteSubmission.id);
+
+            const res = await fetch(`/api/misalud/admin/submissions/${selectedDeleteSubmission.id}`, {
+                method: 'DELETE',
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to delete submission');
+            }
+
+            setDeleteSubmissionModalOpen(false);
+            setSelectedDeleteSubmission(null);
+
+            await refreshAdminData();
+        } catch (error) {
+            console.error('Delete submission error:', error);
+            alert(error instanceof Error ? error.message : 'Failed to delete submission');
+        } finally {
+            setDeletingSubmissionId(null);
+        }
+    };
+
     const pendingCount = useMemo(
         () => requests.filter((request) => request.status === 'PENDING').length,
         [requests]
@@ -269,13 +382,13 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                 user.email.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                 user.teamName.toLowerCase().includes(userSearchQuery.toLowerCase());
 
-            const matchesStatus =
-                userStatusFilter === 'ALL' ||
-                user.membershipStatus === userStatusFilter;
+            const matchesRole =
+                userRoleFilter === 'ALL' ||
+                user.miSaludRole === userRoleFilter;
 
-            return matchesSearch && matchesStatus;
+            return matchesSearch && matchesRole;
         });
-    }, [users, userSearchQuery, userStatusFilter]);
+    }, [users, userSearchQuery, userRoleFilter]);
 
     const filteredSubmissions = useMemo(() => {
         return submissions.filter((submission) => {
@@ -574,25 +687,23 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                                         />
 
                                         <Select
-                                            label="Membership Status"
-                                            selectedKeys={[userStatusFilter]}
+                                            label="Mi Salud Role"
+                                            selectedKeys={[userRoleFilter]}
                                             onSelectionChange={(keys) => {
                                                 const value = Array.from(keys)[0] as
                                                     | 'ALL'
-                                                    | 'APPROVED'
-                                                    | 'PENDING'
-                                                    | 'REJECTED'
+                                                    | 'TEAM_LEADER'
+                                                    | 'TEAM_MEMBER'
                                                     | undefined;
 
-                                                setUserStatusFilter(value || 'ALL');
+                                                setUserRoleFilter(value || 'ALL');
                                             }}
                                             variant="bordered"
                                             className="lg:max-w-xs"
                                         >
-                                            <SelectItem key="ALL">All Statuses</SelectItem>
-                                            <SelectItem key="APPROVED">Approved</SelectItem>
-                                            <SelectItem key="PENDING">Pending</SelectItem>
-                                            <SelectItem key="REJECTED">Rejected</SelectItem>
+                                            <SelectItem key="ALL">All Roles</SelectItem>
+                                            <SelectItem key="TEAM_LEADER">Team Leader</SelectItem>
+                                            <SelectItem key="TEAM_MEMBER">Team Member</SelectItem>
                                         </Select>
                                     </div>
                                     {filteredUsers.length === 0 ? (
@@ -609,8 +720,8 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                                                         <th className="py-3 pr-4 font-semibold text-slate-600">Team</th>
                                                         <th className="py-3 pr-4 font-semibold text-slate-600">Mi Salud Role</th>
                                                         <th className="py-3 pr-4 font-semibold text-slate-600">Membership</th>
-                                                        <th className="py-3 pr-4 font-semibold text-slate-600">Latest Request</th>
                                                         <th className="py-3 pr-4 font-semibold text-slate-600">Approved</th>
+                                                        <th className="py-3 pr-4 font-semibold text-slate-600">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -623,7 +734,18 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                                                                 {user.email}
                                                             </td>
                                                             <td className="py-3 pr-4 text-slate-700">
-                                                                {user.teamName}
+                                                                {editingTeamUserId === user.id ? (
+                                                                    <Input
+                                                                        size="sm"
+                                                                        value={editedTeamName}
+                                                                        onChange={(e) => setEditedTeamName(e.target.value)}
+                                                                        variant="bordered"
+                                                                        isDisabled={updatingTeamUserId === user.id}
+                                                                        className="min-w-[220px]"
+                                                                    />
+                                                                ) : (
+                                                                    user.teamName
+                                                                )}
                                                             </td>
                                                             <td className="py-3 pr-4 text-slate-700">
                                                                 {user.miSaludRole === 'TEAM_LEADER'
@@ -645,27 +767,48 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                                                                     {user.membershipStatus}
                                                                 </Chip>
                                                             </td>
-                                                            <td className="py-3 pr-4">
-                                                                {user.latestRequestStatus ? (
-                                                                    <Chip
-                                                                        size="sm"
-                                                                        color={
-                                                                            user.latestRequestStatus === 'APPROVED'
-                                                                                ? 'success'
-                                                                                : user.latestRequestStatus === 'REJECTED'
-                                                                                  ? 'danger'
-                                                                                  : 'warning'
-                                                                        }
-                                                                        variant="flat"
-                                                                    >
-                                                                        {user.latestRequestStatus}
-                                                                    </Chip>
-                                                                ) : (
-                                                                    <span className="text-slate-400">—</span>
-                                                                )}
-                                                            </td>
                                                             <td className="py-3 pr-4 text-slate-700">
                                                                 {formatDate(user.approvedAt)}
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    {editingTeamUserId === user.id ? (
+                                                                        <Button
+                                                                            isIconOnly
+                                                                            size="sm"
+                                                                            color="success"
+                                                                            variant="flat"
+                                                                            isLoading={updatingTeamUserId === user.id}
+                                                                            onPress={() => handleUpdateTeamName(user)}
+                                                                        >
+                                                                            <Save className="w-4 h-4" />
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <Button
+                                                                            isIconOnly
+                                                                            size="sm"
+                                                                            variant="flat"
+                                                                            className="text-emerald-700 bg-emerald-100"
+                                                                            onPress={() => {
+                                                                                setEditingTeamUserId(user.id);
+                                                                                setEditedTeamName(user.teamName);
+                                                                            }}
+                                                                        >
+                                                                            <Edit3 className="w-4 h-4" />
+                                                                        </Button>
+                                                                    )}
+
+                                                                    <Button
+                                                                        isIconOnly
+                                                                        size="sm"
+                                                                        color="danger"
+                                                                        variant="flat"
+                                                                        isLoading={deletingUserId === user.id}
+                                                                        onPress={() => openDeleteUserModal(user)}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -775,16 +918,29 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                                                                 {submission.totalAnswers}
                                                             </td>
                                                             <td className="py-3 pr-4">
-                                                                <Button
-                                                                    size="sm"
-                                                                    color="success"
-                                                                    variant="flat"
-                                                                    onPress={() =>
-                                                                        router.push(`/misalud/manage/submission/${submission.id}`)
-                                                                    }
-                                                                >
-                                                                    View Details
-                                                                </Button>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        color="success"
+                                                                        variant="flat"
+                                                                        onPress={() =>
+                                                                            router.push(`/misalud/manage/submission/${submission.id}`)
+                                                                        }
+                                                                    >
+                                                                        View
+                                                                    </Button>
+
+                                                                    <Button
+                                                                        isIconOnly
+                                                                        size="sm"
+                                                                        color="danger"
+                                                                        variant="flat"
+                                                                        isLoading={deletingSubmissionId === submission.id}
+                                                                        onPress={() => openDeleteSubmissionModal(submission)}
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </Button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -799,6 +955,124 @@ const MiSaludAdminRequestsClient = ({ session }: Props) => {
                 </Tabs>
             </div>
         </div>
+
+        <Modal
+            isOpen={deleteUserModalOpen}
+            onOpenChange={(open) => {
+                setDeleteUserModalOpen(open);
+                if (!open) {
+                    setSelectedDeleteUser(null);
+                }
+            }}
+        >
+            <ModalContent>
+                <ModalHeader className="font-bold">
+                    Confirm Delete
+                </ModalHeader>
+
+                <ModalBody>
+                    <div className="space-y-1 text-slate-700">
+                        <p>
+                            Are you sure you want to{' '}
+                            <span className="font-bold text-red-600">DELETE</span>{' '}
+                            this Mi Salud user?
+                        </p>
+
+                        <p className="font-semibold text-slate-900">
+                            {selectedDeleteUser?.name || 'Unknown User'}
+                        </p>
+
+                        <p className="text-sm text-slate-500">
+                            Team: {selectedDeleteUser?.teamName || '—'}
+                        </p>
+                    </div>
+
+                    <p className="text-sm text-slate-500">
+                        This action cannot be undone.
+                    </p>
+                </ModalBody>
+
+                <ModalFooter>
+                    <Button
+                        variant="light"
+                        onPress={() => {
+                            setDeleteUserModalOpen(false);
+                            setSelectedDeleteUser(null);
+                        }}
+                        isDisabled={!!deletingUserId}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        className="bg-gradient-to-r from-emerald-800 to-emerald-600 text-white hover:from-emerald-900 hover:to-emerald-700"
+                        onPress={handleDeleteUserConfirm}
+                        isLoading={!!deletingUserId}
+                    >
+                        Confirm Delete
+                    </Button>
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
+
+        <Modal
+            isOpen={deleteSubmissionModalOpen}
+            onOpenChange={(open) => {
+                setDeleteSubmissionModalOpen(open);
+                if (!open) {
+                    setSelectedDeleteSubmission(null);
+                }
+            }}
+        >
+            <ModalContent>
+                <ModalHeader className="font-bold">
+                    Confirm Delete Submission
+                </ModalHeader>
+
+                <ModalBody>
+                    <div className="space-y-1 text-slate-700">
+                        <p>
+                            Are you sure you want to{' '}
+                            <span className="font-bold text-red-600">DELETE</span>{' '}
+                            this submission?
+                        </p>
+
+                        <p className="font-semibold text-slate-900">
+                            {selectedDeleteSubmission?.name || 'Unknown'}
+                        </p>
+
+                        <p className="text-sm text-slate-500">
+                            Team: {selectedDeleteSubmission?.team || '—'}
+                        </p>
+                    </div>
+
+                    <p className="text-sm text-slate-500">
+                        This action cannot be undone.
+                    </p>
+                </ModalBody>
+
+                <ModalFooter>
+                    <Button
+                        variant="light"
+                        onPress={() => {
+                            setDeleteSubmissionModalOpen(false);
+                            setSelectedDeleteSubmission(null);
+                        }}
+                        isDisabled={!!deletingSubmissionId}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        className="bg-gradient-to-r from-emerald-800 to-emerald-600 text-white"
+                        onPress={handleDeleteSubmissionConfirm}
+                        isLoading={!!deletingSubmissionId}
+                    >
+                        Confirm Delete
+                    </Button>
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
 
         <Modal
             isOpen={rejectModalOpen}

@@ -43,7 +43,13 @@ type UserWithPending = User & {
   pendingRoleRequest?: PendingRoleRequest | null;
 };
 
-import { updateUserMhpssLevel, updateUserRole } from '@/lib/action/user';
+import {
+  updateUserMhpssLevel,
+  updateUserRole,
+  updateUserResponderOrganization,
+  updateUserRegion,
+} from '@/lib/action/user';
+
 import { MhpssLevel, UserType } from '@prisma/client';
 import {
   ArrowLeft,
@@ -137,6 +143,27 @@ const mhpssOptions: Array<MhpssLevel | 'NONE'> = [
   MhpssLevel.LEVEL_4,
 ];
 
+const regionOptions = [
+  'NCR',
+  'Region I',
+  'Region II',
+  'Region III',
+  'Region IV-A',
+  'Region IV-B',
+  'Region V',
+  'Region VI',
+  'Region VII',
+  'Region VIII',
+  'Region IX',
+  'Region X',
+  'Region XI',
+  'Region XII',
+  'Region XIII',
+  'CAR',
+  'BARMM',
+  'NONE',
+];
+
 const levelMap: Record<1 | 2 | 3 | 4, string> = {
   1: 'LEVEL_1',
   2: 'LEVEL_2',
@@ -181,14 +208,23 @@ const UserTable = () => {
   );
   const [pendingLoading, setPendingLoading] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [requestConfirmOpen, setRequestConfirmOpen] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [selectedRequestUserName, setSelectedRequestUserName] = useState<string | null>(null);
+  const [selectedRequestAction, setSelectedRequestAction] = useState<'APPROVE' | 'REJECT' | null>(null);
 
   const [editingRow, setEditingRow] = useState<string | null>(null);
   
-  const [editingField, setEditingField] = useState<'role' | 'mhpssLevel' | null>(null);
+  const [editingField, setEditingField] = useState<
+    'role' | 'mhpssLevel' | 'responderOrganization' | 'region' | null
+  >(null);
   const [editedRole, setEditedRole] = useState<{ [key: string]: UserType }>({});
   const [editedMhpssLevel, setEditedMhpssLevel] = useState<{
     [key: string]: MhpssLevel | null;
   }>({});
+  const [editedOrganization, setEditedOrganization] = useState<{ [key: string]: string }>({});
+  const [editedRegion, setEditedRegion] = useState<{ [key: string]: string | null }>({});
+  
   const [isUpdating, setIsUpdating] = useState(false);
   const rowsPerPage = 10;
 
@@ -249,6 +285,16 @@ const UserTable = () => {
     }
   }, []);
 
+  const openRequestConfirm = useCallback(
+    (id: string, userName: string | null, action: 'APPROVE' | 'REJECT') => {
+      setSelectedRequestId(id);
+      setSelectedRequestUserName(userName);
+      setSelectedRequestAction(action);
+      setRequestConfirmOpen(true);
+    },
+    []
+  );
+
   const actOnRequest = useCallback(
     async (id: string, action: 'APPROVE' | 'REJECT') => {
       try {
@@ -278,6 +324,17 @@ const UserTable = () => {
     },
     [mutate]
   );
+
+  const confirmRequestAction = useCallback(async () => {
+    if (!selectedRequestId || !selectedRequestAction) return;
+
+    await actOnRequest(selectedRequestId, selectedRequestAction);
+
+    setRequestConfirmOpen(false);
+    setSelectedRequestId(null);
+    setSelectedRequestUserName(null);
+    setSelectedRequestAction(null);
+  }, [selectedRequestId, selectedRequestAction, actOnRequest]);
 
   const loadingState =
     isLoading || (data?.results?.length ?? 0) === 0 ? 'loading' : 'idle';
@@ -309,18 +366,80 @@ const UserTable = () => {
   );
 
     const handleMhpssLevelChange = useCallback(
-    async (id: string, value: MhpssLevel | null) => {
+      async (id: string, value: MhpssLevel | null) => {
+        try {
+          setIsUpdating(true);
+          setEditedMhpssLevel((prev) => ({ ...prev, [id]: value }));
+          await updateUserMhpssLevel(id, value);
+
+          mutate((currentData: any) => {
+            if (!currentData) return currentData;
+            return {
+              ...currentData,
+              results: currentData.results.map((user: User) =>
+                user.id === id ? { ...user, mhpssLevel: value } : user
+              ),
+            };
+          }, false);
+
+          setEditingRow(null);
+          setEditingField(null);
+        } catch (error) {
+          console.error('Failed to update MHPSS level:', error);
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      [mutate]
+    );
+
+    const handleOrganizationChange = useCallback(
+      async (id: string, value: string) => {
+        try {
+          setIsUpdating(true);
+          setEditedOrganization((prev) => ({ ...prev, [id]: value }));
+
+          await updateUserResponderOrganization(id, value.trim() || null);
+
+          mutate((currentData: any) => {
+            if (!currentData) return currentData;
+
+            return {
+              ...currentData,
+              results: currentData.results.map((user: User) =>
+                user.id === id
+                  ? { ...user, responderOrganization: value.trim() || null }
+                  : user
+              ),
+            };
+          }, false);
+
+          setEditingRow(null);
+          setEditingField(null);
+        } catch (error) {
+          console.error('Failed to update organization:', error);
+        } finally {
+          setIsUpdating(false);
+        }
+      },
+      [mutate]
+    );
+
+    const handleRegionChange = useCallback(
+    async (id: string, value: string | null) => {
       try {
         setIsUpdating(true);
-        setEditedMhpssLevel((prev) => ({ ...prev, [id]: value }));
-        await updateUserMhpssLevel(id, value);
+        setEditedRegion((prev) => ({ ...prev, [id]: value }));
+
+        await updateUserRegion(id, value);
 
         mutate((currentData: any) => {
           if (!currentData) return currentData;
+
           return {
             ...currentData,
             results: currentData.results.map((user: User) =>
-              user.id === id ? { ...user, mhpssLevel: value } : user
+              user.id === id ? { ...user, region: value } : user
             ),
           };
         }, false);
@@ -328,13 +447,14 @@ const UserTable = () => {
         setEditingRow(null);
         setEditingField(null);
       } catch (error) {
-        console.error('Failed to update MHPSS level:', error);
+        console.error('Failed to update region:', error);
       } finally {
         setIsUpdating(false);
       }
     },
     [mutate]
   );
+
 
   const openDeleteConfirm = useCallback((id: string, name?: string | null) => {
   setSelectedUserId(id);
@@ -635,14 +755,48 @@ const UserTable = () => {
                   );
                 }
 
-                        case 'responderOrganization':
+          case 'responderOrganization': {
+          const orgValue =
+            editedOrganization[item.id] !== undefined
+              ? editedOrganization[item.id]
+              : item.responderOrganization || '';
+
           return (
-            <TableCell className="text-center">
-              <span className="text-sm text-slate-700">
-                {item.responderOrganization || '—'}
-              </span>
+            <TableCell
+              className={`text-center ${
+                editingRow === item.id
+                  ? 'cursor-pointer rounded-xl bg-white/70 hover:bg-white/85 border border-white/60 transition-all duration-200'
+                  : ''
+              }`}
+              onClick={() => {
+                if (editingRow === item.id) setEditingField('responderOrganization');
+              }}
+            >
+              {editingRow === item.id && editingField === 'responderOrganization' ? (
+                <Input
+                  size="sm"
+                  value={orgValue}
+                  disabled={isUpdating}
+                  placeholder="Enter organization"
+                  className="min-w-[160px]"
+                  onValueChange={(value) =>
+                    setEditedOrganization((prev) => ({ ...prev, [item.id]: value }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleOrganizationChange(item.id, orgValue);
+                    }
+                  }}
+                  onBlur={() => handleOrganizationChange(item.id, orgValue)}
+                />
+              ) : (
+                <span className="text-sm text-slate-700">
+                  {item.responderOrganization || '—'}
+                </span>
+              )}
             </TableCell>
           );
+        }
 
         case 'mhpssCertificateFileUrl':
           return (
@@ -662,14 +816,59 @@ const UserTable = () => {
             </TableCell>
           );
 
-        case 'region':
+        case 'region': {
+        const regionValue =
+          editedRegion[item.id] !== undefined
+            ? editedRegion[item.id]
+            : item.region || null;
+
         return (
-          <TableCell className="w-[120px] text-center">
-            <span className="text-sm text-slate-700 whitespace-nowrap">
-              {item.region || 'No region'}
-            </span>
+          <TableCell
+            className={`w-[140px] text-center ${
+              editingRow === item.id
+                ? 'cursor-pointer rounded-xl bg-white/70 hover:bg-white/85 border border-white/60 transition-all duration-200'
+                : ''
+            }`}
+            onClick={() => {
+              if (editingRow === item.id) setEditingField('region');
+            }}
+          >
+            {editingRow === item.id && editingField === 'region' ? (
+              <Dropdown placement="bottom-start" shouldFlip={false}>
+                <DropdownTrigger>
+                  <Button
+                    size="sm"
+                    variant="light"
+                    disabled={isUpdating}
+                    className="bg-white/60 backdrop-blur-sm border border-white/60 shadow-sm"
+                  >
+                    {regionValue || 'No region'}
+                  </Button>
+                </DropdownTrigger>
+
+                <DropdownMenu
+                  disabledKeys={isUpdating ? regionOptions : []}
+                  onAction={(key) => {
+                    const value = String(key);
+                    handleRegionChange(item.id, value === 'NONE' ? null : value);
+                  }}
+                  className="bg-white/95 backdrop-blur-sm max-h-[260px] overflow-y-auto"
+                >
+                  {regionOptions.map((region) => (
+                    <DropdownItem key={region} textValue={region}>
+                      {region === 'NONE' ? 'No region' : region}
+                    </DropdownItem>
+                  ))}
+                </DropdownMenu>
+              </Dropdown>
+            ) : (
+              <span className="text-sm text-slate-700 whitespace-nowrap">
+                {item.region || 'No region'}
+              </span>
+            )}
           </TableCell>
         );
+      }
 
         case 'actions':
           return (
@@ -743,8 +942,12 @@ const UserTable = () => {
         editingField,
         editedRole,
         editedMhpssLevel,
+        editedOrganization,
+        editedRegion,
         handleRoleChange,
         handleMhpssLevelChange,
+        handleOrganizationChange,
+        handleRegionChange,
         openDeleteConfirm,
       ]
   );
@@ -1162,7 +1365,7 @@ const UserTable = () => {
                             <button
                               type="button"
                               disabled={pendingLoading}
-                              onClick={() => actOnRequest(r.id, 'REJECT')}
+                              onClick={() => openRequestConfirm(r.id, r.user?.name || null, 'REJECT')}
                               className="px-4 py-2 rounded-2xl text-sm font-semibold border border-slate-200 bg-white/90 hover:bg-slate-50 disabled:opacity-60 shadow-sm hover:shadow-md transition-all"
                             >
                               Reject
@@ -1171,7 +1374,7 @@ const UserTable = () => {
                             <button
                               type="button"
                               disabled={pendingLoading}
-                              onClick={() => actOnRequest(r.id, 'APPROVE')}
+                              onClick={() => openRequestConfirm(r.id, r.user?.name || null, 'APPROVE')}
                               className="px-4 py-2 rounded-2xl text-sm font-semibold text-white bg-gradient-to-r from-[#2A060D] via-[#7A0C1E] to-[#B91C1C] hover:opacity-95 disabled:opacity-60 shadow-md hover:shadow-lg transition-all"
                             >
                               Approve
@@ -1186,6 +1389,63 @@ const UserTable = () => {
             )}
           </CardBody>
         </Card>
+
+        <Modal
+          isOpen={requestConfirmOpen}
+          onClose={() => {
+            if (pendingLoading) return;
+            setRequestConfirmOpen(false);
+            setSelectedRequestId(null);
+            setSelectedRequestUserName(null);
+            setSelectedRequestAction(null);
+          }}
+        >
+          <ModalContent>
+            <ModalHeader className="font-bold">
+              Confirm Request Action
+            </ModalHeader>
+
+            <ModalBody>
+              <div className="space-y-1 text-slate-700">
+                <p>
+                  Are you sure you want to{" "}
+                  <span className="font-bold text-[#7B122F]">
+                    {selectedRequestAction === 'APPROVE' ? 'APPROVE' : 'REJECT'}
+                  </span>{" "}
+                  this pending request?
+                </p>
+
+                <p className="font-semibold text-slate-900">
+                  {selectedRequestUserName || 'Unknown User'}
+                </p>
+              </div>
+
+            </ModalBody>
+
+            <ModalFooter>
+              <Button
+                variant="light"
+                onPress={() => {
+                  setRequestConfirmOpen(false);
+                  setSelectedRequestId(null);
+                  setSelectedRequestUserName(null);
+                  setSelectedRequestAction(null);
+                }}
+                isDisabled={pendingLoading}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="bg-[#7B122F] text-white"
+                onPress={confirmRequestAction}
+                isLoading={pendingLoading}
+              >
+                Confirm
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
 
         <Modal
           isOpen={deleteConfirmOpen}
@@ -1213,10 +1473,6 @@ const UserTable = () => {
                   {selectedUserName || 'Unknown User'}
                 </p>
               </div>
-
-              <p className="text-sm text-slate-500">
-                This action cannot be undone.
-              </p>
             </ModalBody>
 
             <ModalFooter>

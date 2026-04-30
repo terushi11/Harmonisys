@@ -157,3 +157,42 @@ export async function updateUserMhpssLevel(
         return { success: false, error: 'Failed to update user MHPSS level' };
     }
 }
+
+export async function updateUserResponderOrganization(
+  userId: string,
+  responderOrganization: string | null
+) {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { responderOrganization },
+    });
+    revalidatePath('/users');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user responder organization:', error);
+    return {
+      success: false,
+      error: 'Failed to update user responder organization',
+    };
+  }
+}
+
+export async function updateUserRegion(userId: string, region: string | null) {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { region },
+    });
+    revalidatePath('/users');
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user region:', error);
+    return {
+      success: false,
+      error: 'Failed to update user region',
+    };
+  }
+}

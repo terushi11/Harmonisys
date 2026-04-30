@@ -55,3 +55,52 @@ export async function GET(_: Request, context: RouteContext) {
         );
     }
 }
+
+export async function DELETE(_: Request, context: RouteContext) {
+    try {
+        const session = await auth();
+
+        if (!session?.user?.id || session.user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            );
+        }
+
+        const { id } = await context.params;
+
+        const existing = await prisma.submission.findUnique({
+            where: { id },
+        });
+
+        if (!existing) {
+            return NextResponse.json(
+                { error: 'Submission not found' },
+                { status: 404 }
+            );
+        }
+
+        await prisma.$transaction([
+            prisma.questionResponse.deleteMany({
+                where: {
+                    submissionId: id,
+                },
+            }),
+
+            prisma.submission.delete({
+                where: {
+                    id,
+                },
+            }),
+        ]);
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting Mi Salud submission:', error);
+
+        return NextResponse.json(
+            { error: 'Failed to delete submission' },
+            { status: 500 }
+        );
+    }
+}
